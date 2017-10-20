@@ -12,5 +12,5 @@ Windows:
 
 Dependencies:
 
-Allegro 5.0.10 
-(Definitely won't work with 5.0.8 or earlier)
+Developed with Allegro 5.2.2
+
