@@ -8,6 +8,8 @@
 #include "engine.h"
 #include "util.h"
 #include "textstyle.h"
+#include "button.h"
+#include "panel.h"
 
 using namespace std;
 
@@ -48,7 +50,7 @@ AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
 };
 
 enum class MutationId {
-	TRANSVERSION, TRANSITION, COMPLELENT, REVERSE_COMPLEMENT, INSERTION_A, INSERTION_C, INERTION_T, INSERTION_G, DELETION,
+	TRANSVERSION, TRANSITION, COMPLEMENT, REVERSE_COMPLEMENT, INSERTION_A, INSERTION_C, INSERTION_T, INSERTION_G, DELETION,
 };
 
 struct MutationInfo {
@@ -314,12 +316,148 @@ public:
 					getNucleotideIndex(at(i+2))
 			);
 			pept.push_back(aa);
-
 		}
 
 		return PeptideModel(pept);
 	}
 
+	char getComplement(char nt) {
+		switch (nt) {
+			case 'A': return 'T';
+			case 'T': return 'A';
+			case 'G': return 'C';
+			case 'C': return 'G';
+			default: Assert (false, "Invalid nucleotide");
+			return ' ';
+		}
+	}
+
+	char getTransversion(char nt) {
+		switch (nt) {
+			case 'G': return 'T';
+			case 'T': return 'G';
+			case 'A': return 'C';
+			case 'C': return 'A';
+			default: Assert (false, "Invalid nucleotide");
+			return ' ';
+		}
+	}
+
+	char getTransition(char nt) {
+		switch (nt) {
+			case 'G': return 'A';
+			case 'A': return 'G';
+			case 'T': return 'C';
+			case 'C': return 'T';
+			default: Assert (false, "Invalid nucleotide");
+			return ' ';
+		}
+	}
+
+	void applyMutation (int pos, MutationId mutation) {
+		Assert (pos >= 0 && pos < data.size(), "pos is out of range");
+		switch (mutation) {
+		case MutationId::COMPLEMENT:
+			data[pos] = getComplement(data[pos]);
+			break;
+		case MutationId::TRANSVERSION:
+			data[pos] = getTransversion(data[pos]);
+			break;
+		case MutationId::TRANSITION:
+			data[pos] = getTransition(data[pos]);
+			break;
+		case MutationId::DELETION:
+			data.erase(pos, 1);
+			break;
+		case MutationId::REVERSE_COMPLEMENT:
+			reverseComplement();
+			break;
+		case MutationId::INSERTION_A:
+			data.insert(pos, "A");
+			break;
+		case MutationId::INSERTION_C:
+			data.insert(pos, "C");
+			break;
+		case MutationId::INSERTION_G:
+			data.insert(pos, "G");
+			break;
+		case MutationId::INSERTION_T:
+			data.insert(pos, "T");
+			break;
+		default:
+			Assert (false, "Invalid mutation id");
+			break;
+		}
+	}
+
+	/** in-place modification. Turn this DNA sequence into its reverse complement */
+	void reverseComplement() {
+		string newData;
+		for (char c : data) {
+			newData += getComplement(c);
+		}
+
+		data = newData;
+	}
+
+
+};
+
+class MutationCursor : public IComponent {
+	DNAModel &model;
+	int pos;
+	MutationId mutation;
+public:
+	MutationCursor(DNAModel &model, MutationId mutation) : model(model), pos(0), mutation(mutation) {
+		w = 32;
+		h = 32;
+		setPos(0);
+	}
+
+	virtual void draw(const GraphicsContext &gc) override {
+		double x1 = x + gc.xofst;
+		double y1 = y + gc.yofst;
+
+		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0, 0.5, 0));
+		al_draw_rectangle(x1, y1, x1 + w, y1 + h, GREEN, 1.0);
+
+		draw_shaded_textf(font, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, "cursor");
+	}
+
+	void setPos(int newpos) {
+		if (pos != newpos) {
+			pos = newpos;
+			setx( 64 * pos);
+		}
+	}
+
+	virtual void handleEvent(ALLEGRO_EVENT &event) override {
+		int newpos = pos;
+		if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+			switch (event.keyboard.keycode) {
+			case ALLEGRO_KEY_LEFT:
+				newpos = max (0, pos-1);
+				break;
+			case ALLEGRO_KEY_RIGHT:
+				newpos = min(pos+1, (int)model.size());
+				break;
+			case ALLEGRO_KEY_ENTER:
+				model.applyMutation(pos, mutation);
+				break;
+			}
+		}
+
+		setPos(newpos);
+	};
+};
+
+class MutationMenu : public Panel {
+private:
+public:
+	MutationMenu() {
+//		auto btn = Button::build(0, "Reverse Complement").layout (Layout::LEFT TOP_W_H, 10, 10, 80, 20).build();
+//		add (btn);
+	}
 };
 
 class GameImpl : public Game {
@@ -333,6 +471,8 @@ private:
 	PeptideModel targetPeptide;
 	PeptideModel currentPeptide;
 
+	shared_ptr<MutationCursor> mutationCursor;
+	shared_ptr<MutationMenu> menu;
 public:
 
 	GameImpl() : currentLevel(0), sprites() {
@@ -340,6 +480,14 @@ public:
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
 		add (codonTableView);
+
+		menu = make_shared<MutationMenu>();
+		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 200, 200);
+		add(menu);
+
+		mutationCursor = make_shared<MutationCursor>(currentDNA, MutationId::COMPLEMENT);
+		mutationCursor->setxy(100, 400);
+		add(mutationCursor);
 	}
 
 	virtual ~GameImpl() {
@@ -445,6 +593,7 @@ public:
 			}
 		}
 
+		if (mutationCursor) mutationCursor->handleEvent(event);
 	}
 
 };
