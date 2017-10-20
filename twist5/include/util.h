@@ -71,4 +71,6 @@ void log(const char* msg, ...);
 // add quotes around some literal text
 #define QUOTE(name) #name
 
+
+#define Assert(cond, msg) (cond && msg)
 #endif
