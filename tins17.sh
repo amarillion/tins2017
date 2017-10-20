@@ -11,4 +11,4 @@ else
 	cd $(dirname $0)
 fi
 
-bin/tins17
+LD_LIBRARY_PATH=lib bin/tins17
