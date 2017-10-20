@@ -1,0 +1,7 @@
+allegro.log
+bin/
+build/
+.cproject
+.project
+.settings/
+lib/
