@@ -461,21 +461,24 @@ public:
 		return data.at(idx);
 	}
 
-	Peptide translate() {
-
+	static Peptide translate(const OligoNt &myData) {
 		Peptide pept;
 
-		for (size_t i = 0; i < data.size(); i += 3) {
+		for (size_t i = 0; i < myData.size(); i += 3) {
 
 			int aa = codonTable.getCodon(
-					(int)getNucleotideIndex(at(i)),
-					(int)getNucleotideIndex(at(i+1)),
-					(int)getNucleotideIndex(at(i+2))
+					(int)getNucleotideIndex(myData.at(i)),
+					(int)getNucleotideIndex(myData.at(i+1)),
+					(int)getNucleotideIndex(myData.at(i+2))
 			);
 			pept.push_back(aa);
 		}
 
 		return pept;
+	}
+
+	Peptide translate() {
+		return translate(data);
 	}
 
 	static char getComplement(char nt) {
@@ -690,10 +693,22 @@ private:
 	}
 
 	static void showSolution(const Solution &solution, const LevelInfo &level) {
-		for (int i = 0; i < solution.mutations.size(); ++i) {
+
+		OligoNt gene = level.startGene;
+		for (size_t i = 0; i < solution.mutations.size(); ++i) {
 			cout << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
+			gene = DNAModel::applyMutation(gene, solution.positions[i], solution.mutations[i]);
 		}
+
+		cout << gene << " ";
+		Peptide pept = DNAModel::translate(gene);
+
+		for (size_t i = 0; i < pept.size(); ++i) {
+			cout << aminoAcidInfo[pept.at(i)].threeLetterCode;
+		}
+
 		cout << endl;
+
 	}
 
 	void bruteForce() {
@@ -808,7 +823,7 @@ private:
 
 public:
 
-	GameImpl() : currentLevel(2), world() {
+	GameImpl() : currentLevel(0), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
