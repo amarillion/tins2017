@@ -18,8 +18,8 @@
 
 using namespace std;
 
-enum class AminoAcid {
-	A, R, N, D, C, Q, E, G, H, I, L, K, M, F, P, S, T, W, Y, V, STOP
+enum class AA {
+	Ala, Arg, Asn, Asp, Cys, Gln, Glu, Gly, His, Ile, Leu, Lys, Met, Phe, Pro, Ser, Thr, Trp, Tyr, Val, STP
 };
 
 struct AminoAcidInfo {
@@ -81,7 +81,7 @@ struct NucleotideInfo {
 	string name;
 };
 
-enum class Nucleotide { T, C, A, G };
+enum class NT { T, C, A, G };
 
 NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 	{ 'T', "Tyrosine" },
@@ -90,11 +90,11 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 	{ 'G', "Guanosine" }
 };
 
-using Peptide = vector<int>;
+using Peptide = vector<AA>;
 using OligoNt = string;
 
 struct LevelInfo {
-	vector<string> targetPeptide;
+	Peptide targetPeptide;
 	OligoNt startGene;
 
 	// cards available in this level
@@ -103,60 +103,69 @@ struct LevelInfo {
 
 const int NUM_LEVELS = 7;
 LevelInfo levelInfo[NUM_LEVELS] = {
-	{ { "Trp", "Val" }, "TGTGTT", { MutationId::TRANSVERSION } },
-	{ { "Ala", "Met" }, "GCTACG", { MutationId::TRANSITION } },
 
-	{ { "Leu", "Lys" }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+	{ { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
+	{ { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
 
-	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::COMPLEMENT } },
-	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::REVERSE_COMPLEMENT } },
-	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::DELETION } },
-	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::INSERTION_T } }
+	{ { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+
+	{ { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
+	{ { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
+
+	{ { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
+
+	{ { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
+
+	// GATTACA
+	// CAT CAT
+	// TAG GAG ACT CAT
+
+	//TODO: // introducing stop codon
 };
 
-Nucleotide getNucleotideIndex(char c) {
+NT getNucleotideIndex(char c) {
 	switch(c) {
 	//TODO: use reverse lookup of NucleotideInfo instead of hard-coding order...
-	case 'T': return Nucleotide::T;
-	case 'C': return Nucleotide::C;
-	case 'A': return Nucleotide::A;
-	case 'G': return Nucleotide::G;
+	case 'T': return NT::T;
+	case 'C': return NT::C;
+	case 'A': return NT::A;
+	case 'G': return NT::G;
 	default: Assert (false, "Not a valid nucleotide character");
-		return Nucleotide::A; //DUMMY value
+		return NT::A; //DUMMY value
 	break;
 	}
 }
 
-ALLEGRO_COLOR getNucleotideColor(Nucleotide idx, float shade) {
+ALLEGRO_COLOR getNucleotideColor(NT idx, float shade) {
 	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
 	Assert ((int)idx >= 0 && (int)idx < NUM_NUCLEOTIDES, "idx is not in range");
 
 	switch (idx) {
-	case Nucleotide::T: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
-	case Nucleotide::C: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
-	case Nucleotide::A: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
-	case Nucleotide::G: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
+	case NT::T: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
+	case NT::C: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
+	case NT::A: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
+	case NT::G: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
 	default: return BLACK;
 	}
 }
 
 class CodonTable {
 private:
-	vector<int> codonTable;
-	map<string, int> aaIndexByThreeLetterCode;
+	vector<AA> codonTable;
+	map<string, AA> aaIndexByThreeLetterCode;
 public:
 	CodonTable() {
 
 		codonTable.resize(64);
 		for (int i = 0; i < NUM_AMINO_ACIDS; ++i) {
-
+			AA aa = static_cast<AA>(i);
 			auto aaInfo = &aminoAcidInfo[i];
 			for (auto codon : aaInfo->codons) {
 				int codonIdx = codonIndexFromString(codon);
-				codonTable[codonIdx] = i;
+				codonTable[codonIdx] = aa;
 			}
 
-			aaIndexByThreeLetterCode[aaInfo->threeLetterCode] = i;
+			aaIndexByThreeLetterCode[aaInfo->threeLetterCode] = aa;
 		}
 
 	}
@@ -180,12 +189,12 @@ public:
 		);
 	}
 
-	int getCodon(int i, int j, int k) {
+	AA getCodon(int i, int j, int k) {
 		int idx = getCodonIndex(i, j, k);
 		return codonTable[idx];
 	}
 
-	int getIndexByThreeLetterCode(const string &threeLetterCode) {
+	AA getIndexByThreeLetterCode(const string &threeLetterCode) {
 		Assert (threeLetterCode.size() == 3, "Three letter code must have three letters");
 		Assert (aaIndexByThreeLetterCode.find(threeLetterCode) != aaIndexByThreeLetterCode.end(), "Unknown three-letter code");
 		return aaIndexByThreeLetterCode[threeLetterCode];
@@ -214,8 +223,8 @@ class CodonTableView : public IComponent {
 					// cell position
 					int xco = x1 + j * COL_WIDTH + getx();
 					int yco = y1 + i * OUTER_ROW_HEIGHT + k * INNER_ROW_HEIGHT;
-					int aaIdx = codonTable.getCodon(i, j, k);
-					const AminoAcidInfo *aai = &aminoAcidInfo[aaIdx];
+					AA aaIdx = codonTable.getCodon(i, j, k);
+					const AminoAcidInfo *aai = &aminoAcidInfo[static_cast<int>(aaIdx)];
 					if (aai) {
 						al_draw_text(sfont, GREEN, xco, yco, ALLEGRO_ALIGN_LEFT, aai->threeLetterCode.c_str());
 					}
@@ -281,7 +290,7 @@ private:
 
 	NucleotideInfo *info;
 	char code;
-	Nucleotide idx;
+	NT idx;
 public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
@@ -310,16 +319,16 @@ public:
 class AminoAcidSprite : public Sprite {
 private:
 	AminoAcidInfo *info;
-	int aaIdx;
+	AA aaIdx;
 public:
-	AminoAcidSprite(double x, double y, int aaIdx) : aaIdx(aaIdx) {
+	AminoAcidSprite(double x, double y, AA aaIdx) : aaIdx(aaIdx) {
 
 		this->x = x;
 		this->y = y;
 		w = AA_WIDTH;
 		h = AA_HEIGHT;
-		Assert (aaIdx >= 0 && aaIdx < NUM_AMINO_ACIDS, "Invalid amino acid index");
-		info = &aminoAcidInfo[aaIdx];
+		Assert ((int)aaIdx >= 0 && (int)aaIdx < NUM_AMINO_ACIDS, "Invalid amino acid index");
+		info = &aminoAcidInfo[static_cast<int>(aaIdx)];
 	}
 
 	virtual void draw(const GraphicsContext &gc) {
@@ -346,7 +355,7 @@ public:
 				int xco = x1 + c * INTERNAL_STEPSIZE + AA_PADDING;
 
 				char nt = codon.at(c);
-				Nucleotide ntIdx = getNucleotideIndex(nt);
+				NT ntIdx = getNucleotideIndex(nt);
 				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
 				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
 
@@ -429,7 +438,7 @@ public:
 		return data.size();
 	}
 
-	int at(int idx) {
+	AA at(int idx) {
 		return data[idx];
 	}
 
@@ -464,9 +473,9 @@ public:
 	static Peptide translate(const OligoNt &myData) {
 		Peptide pept;
 
-		for (size_t i = 0; i < myData.size(); i += 3) {
+		for (size_t i = 0; i < myData.size() - 2; i += 3) {
 
-			int aa = codonTable.getCodon(
+			AA aa = codonTable.getCodon(
 					(int)getNucleotideIndex(myData.at(i)),
 					(int)getNucleotideIndex(myData.at(i+1)),
 					(int)getNucleotideIndex(myData.at(i+2))
@@ -692,9 +701,22 @@ private:
 		return result;
 	}
 
+	static int distanceScore(const Peptide &src, const Peptide &dest) {
+		int minSize = min(src.size(), dest.size());
+		int maxSize = max(src.size(), dest.size());
+
+		int score = maxSize - minSize;
+
+		for (int i = 0; i < minSize; i++) {
+			if (src.at(i) != dest.at(i)) score++;
+		}
+		return score;
+	}
+
 	static void showSolution(const Solution &solution, const LevelInfo &level) {
 
 		OligoNt gene = level.startGene;
+
 		for (size_t i = 0; i < solution.mutations.size(); ++i) {
 			cout << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
 			gene = DNAModel::applyMutation(gene, solution.positions[i], solution.mutations[i]);
@@ -704,11 +726,13 @@ private:
 		Peptide pept = DNAModel::translate(gene);
 
 		for (size_t i = 0; i < pept.size(); ++i) {
-			cout << aminoAcidInfo[pept.at(i)].threeLetterCode;
+			cout << aminoAcidInfo[static_cast<int>(pept.at(i))].threeLetterCode;
 		}
 
+		int dist = distanceScore(pept, level.targetPeptide);
+		cout << " " << dist;
+		if (dist == 0) { cout << " *"; }
 		cout << endl;
-
 	}
 
 	void bruteForce() {
@@ -767,11 +791,11 @@ public:
 		int ym = yy + SIZE_2;
 
 		switch (mutationId) {
-		case MutationId::COMPLEMENT:
+		case MutationId::TRANSVERSION:
 			al_draw_line (xm, ym, xm + STEP, ym + STEP, BLACK, 2.0);
 			al_draw_line (xm + STEP, ym, xm, ym + STEP, BLACK, 2.0);
 			break;
-		case MutationId::TRANSVERSION:
+		case MutationId::COMPLEMENT:
 			al_draw_line (xm, ym, xm, ym + STEP, BLACK, 2.0);
 			al_draw_line (xm + STEP, ym, xm + STEP, ym + STEP, BLACK, 2.0);
 			break;
@@ -783,20 +807,20 @@ public:
 		}
 
 		drawOutlinedRect(xx, yy, xx + SIZE, yy + SIZE,
-				getNucleotideColor(Nucleotide::A, 1.0),
-				getNucleotideColor(Nucleotide::A, 0.5), 1.0);
+				getNucleotideColor(NT::A, 1.0),
+				getNucleotideColor(NT::A, 0.5), 1.0);
 
 		drawOutlinedRect(xx + STEP, yy, xx + STEP + SIZE, yy + SIZE,
-				getNucleotideColor(Nucleotide::G, 1.0),
-				getNucleotideColor(Nucleotide::G, 0.5), 1.0);
+				getNucleotideColor(NT::G, 1.0),
+				getNucleotideColor(NT::G, 0.5), 1.0);
 
 		drawOutlinedRect(xx, yy + STEP, xx + SIZE, yy + STEP + SIZE,
-				getNucleotideColor(Nucleotide::T, 1.0),
-				getNucleotideColor(Nucleotide::T, 0.5), 1.0);
+				getNucleotideColor(NT::T, 1.0),
+				getNucleotideColor(NT::T, 0.5), 1.0);
 
 		drawOutlinedRect(xx + STEP, yy + STEP, xx + STEP + SIZE, yy + STEP + SIZE,
-				getNucleotideColor(Nucleotide::C, 1.0),
-				getNucleotideColor(Nucleotide::C, 0.5), 1.0);
+				getNucleotideColor(NT::C, 1.0),
+				getNucleotideColor(NT::C, 0.5), 1.0);
 
 	}
 
@@ -823,7 +847,7 @@ private:
 
 public:
 
-	GameImpl() : currentLevel(0), world() {
+	GameImpl() : currentLevel(6), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -884,7 +908,7 @@ public:
 		int yco = ay;
 
 		for (size_t i = 0; i < pep.size(); ++i) {
-			int aaIdx = pep.at(i);
+			AA aaIdx = pep.at(i);
 
 			auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
 			world.push_back(aaSprite);
@@ -951,11 +975,7 @@ public:
 
 		currentDNA.setValue(lev->startGene);
 
-		Peptide pept;
-		for (auto aa : lev->targetPeptide) {
-			int aaIdx = codonTable.getIndexByThreeLetterCode(aa);
-			pept.push_back(aaIdx);
-		}
+		Peptide pept = lev->targetPeptide;
 		targetPeptide.setValue(pept);
 
 		currentMutationCards = lev->mutationCards;
