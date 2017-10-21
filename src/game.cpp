@@ -692,7 +692,7 @@ private:
 
 public:
 
-	GameImpl() : currentLevel(2), world() {
+	GameImpl() : currentLevel(0), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -703,21 +703,26 @@ public:
 		add(menu);
 
 		currentDNA.AddListener( [=] (int code) {
-			cout << "Current DNA updated" << endl;
 			currentPeptide.setValue(currentDNA.translate());
 			generateGeneSprites(currentDNA);
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
-			cout << "Current peptide updated" << endl;
 			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
 			checkWinCondition();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
-			cout << "Target peptide updated" << endl;
 			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
 		});
+
+		auto button = Button::build([=](){ resetLevel(); }, "RESET")
+			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 20).get();
+		add(button);
+	}
+
+	void resetLevel() {
+		initLevel();
 	}
 
 	virtual ~GameImpl() {
@@ -791,7 +796,6 @@ public:
 
 	void checkWinCondition() {
 		if (currentPeptide.getValue() == targetPeptide.getValue()) {
-			cout << "You've completed the level!" << endl;
 			MessageBox::showMessage("Complete", "You completed the level", "OK", nullptr, nullptr);
 
 			currentLevel++;
@@ -821,14 +825,16 @@ public:
 	}
 
 	void applyMutation (int pos, MutationId mutationId) {
-		currentDNA.applyMutation(pos, mutationId);
 
+		// first remove mutation card, before triggering level check etc...
 		auto it = std::find(currentMutationCards.begin(), currentMutationCards.end(), mutationId);
 		if (it != currentMutationCards.end()) {
 			currentMutationCards.erase(it);
 		}
 
 		initMutationCards(currentMutationCards);
+
+		currentDNA.applyMutation(pos, mutationId);
 	}
 
 	virtual void update() override {
