@@ -240,6 +240,10 @@ const int NT_HEIGHT = 2 * NT_WIDTH;
 const int NT_SPACING = 8;
 const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 
+const int TARGET_PEPT_Y = 180;
+const int CURRENT_PEPT_Y = 280;
+const int GENE_Y = 380;
+const int CURSOR_Y = 460;
 
 const int BUTTONW = 120;
 const int BUTTONH = 16;
@@ -772,17 +776,26 @@ public:
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
-			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
+			peptideToSprites(currentPeptide, currentPeptideGroup, 10, CURRENT_PEPT_Y);
 			checkWinCondition();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
-			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
+			peptideToSprites(targetPeptide, targetPeptideGroup, 10, TARGET_PEPT_Y);
 		});
 
 		auto button = Button::build([=](){ resetLevel(); }, "RESET")
 			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 20).get();
 		add(button);
+
+		Resources *res = Engine::getResources();
+		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 0, 130, 130).get();
+		img1->setZoom(2.0);
+		add(img1);
+
+		auto img2 = BitmapComp::build(res->getBitmap("bunmachine")).xywh(800-240, 0, 240, 240).get();
+		img2->setZoom(2.0);
+		add(img2);
 	}
 
 	void resetLevel() {
@@ -823,7 +836,7 @@ public:
 		if (mutationCursor) { mutationCursor->kill(); }
 
 		mutationCursor = make_shared<MutationCursor>(this, mutationId);
-		mutationCursor->sety(400);
+		mutationCursor->sety(CURSOR_Y);
 		add(mutationCursor);
 	}
 
@@ -843,7 +856,7 @@ public:
 	void generateGeneSprites(DNAModel &oligo) {
 
 		int xco = 10;
-		int yco = 300;
+		int yco = GENE_Y;
 
 		geneGroup.killAll();
 
@@ -909,7 +922,7 @@ public:
 	}
 
 	virtual void draw(const GraphicsContext &gc) override {
-		al_clear_to_color(WHITE);
+		al_clear_to_color(al_map_rgb(172,232,135));
 		if (Engine::isDebug())
 		{
 			al_draw_text(Engine::getFont(), LIGHT_BLUE, 0, 0, ALLEGRO_ALIGN_LEFT, "DEBUG ON");
