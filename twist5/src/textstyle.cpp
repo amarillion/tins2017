@@ -50,8 +50,8 @@ void draw_text_with_background(const ALLEGRO_FONT *font, ALLEGRO_COLOR text_colo
 
 void draw_shaded_text(const ALLEGRO_FONT *font, ALLEGRO_COLOR text_color, ALLEGRO_COLOR shade_color, float x, float y, int alignment, const char *text)
 {
-	al_draw_text (font, shade_color, x+1, y+1, ALLEGRO_ALIGN_CENTER, text);
-	al_draw_text (font, text_color, x, y,  ALLEGRO_ALIGN_CENTER, text);
+	al_draw_text (font, shade_color, x+1, y+1, alignment, text);
+	al_draw_text (font, text_color, x, y, alignment, text);
 }
 
 void draw_shaded_textf(const ALLEGRO_FONT *font, ALLEGRO_COLOR text_color, ALLEGRO_COLOR shade_color, float x, float y, int alignment, const char *text, ...)

@@ -10,6 +10,7 @@
 #include "textstyle.h"
 #include "button.h"
 #include "panel.h"
+#include "button.h"
 
 #include "data.h"
 
@@ -200,6 +201,23 @@ class CodonTableView : public IComponent {
 
 };
 
+// generic Layout variables
+const int AA_WIDTH = 96;
+const int AA_SPACING = 16; // between AA cards
+const int AA_HEIGHT = 64;
+const int AA_STEPSIZE = AA_WIDTH + AA_SPACING;
+
+const int AA_PADDING = 8; // padding on inside of AA card.
+
+const int NT_WIDTH = 30;
+const int NT_HEIGHT = 2 * NT_WIDTH;
+const int NT_SPACING = 8;
+const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
+
+
+const int BUTTONW = 120;
+const int BUTTONH = 16;
+
 ALLEGRO_FONT *font;
 
 class Sprite
@@ -235,8 +253,8 @@ public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
 		this->y = y;
-		w = 32;
-		h = 64;
+		w = NT_WIDTH;
+		h = NT_HEIGHT;
 		idx = getNucleotideIndex(code);
 		info = &nucleotideInfo[idx];
 	}
@@ -265,8 +283,8 @@ public:
 
 		this->x = x;
 		this->y = y;
-		w = 96;
-		h = 64;
+		w = AA_WIDTH;
+		h = AA_HEIGHT;
 		Assert (aaIdx >= 0 && aaIdx < NUM_AMINO_ACIDS, "Invalid amino acid index");
 		info = &aminoAcidInfo[aaIdx];
 	}
@@ -278,25 +296,31 @@ public:
 		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0.5, 0, 0));
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
 
-		draw_shaded_textf(font, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, info->threeLetterCode.c_str());
+		draw_shaded_textf(font, WHITE, GREY, x1 + AA_PADDING, y1 + AA_PADDING, ALLEGRO_ALIGN_LEFT, info->threeLetterCode.c_str());
 
 		// draw the DNA target sequences...
 
 		int yco = y1 + 20;
+		const int INTERNAL_SPACING = 4;
+		const int INTERNAL_WIDTH = (AA_WIDTH - (2 * AA_PADDING) - (2 * INTERNAL_SPACING)) / 3;
+		const int INTERNAL_STEPSIZE = INTERNAL_WIDTH + INTERNAL_SPACING;
+		const int INTERNAL_HEIGHT = 5;
+		const int INTERNAL_VERTICAL_STEPSIZE = INTERNAL_HEIGHT + 2;
+
 		for (auto codon : info->codons) {
 			for (int c = 0; c < 3; ++c) {
 
-				int xco = x1 + c * 12 + 4;
+				int xco = x1 + c * INTERNAL_STEPSIZE + AA_PADDING;
 
 				char nt = codon.at(c);
 				int ntIdx = getNucleotideIndex(nt);
 				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
 				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
 
-				al_draw_filled_rectangle(xco, yco, xco + 8, yco + 6, shadeCol);
-				al_draw_rectangle(xco, yco, xco + 8, yco + 6, mainCol, 1.0);
+				al_draw_filled_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, shadeCol);
+				al_draw_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, mainCol, 1.0);
 			}
-			yco += 8;
+			yco += INTERNAL_VERTICAL_STEPSIZE;
 		}
 	};
 
@@ -516,12 +540,13 @@ public:
 	MutationCursor(DNAModel &model, MutationId mutation) : model(model), pos(0), mutation(mutation) {
 		w = 32;
 		h = 32;
+		setLocation(0, 0, w, h);
 		setPos(0);
 	}
 
 	virtual void draw(const GraphicsContext &gc) override {
-		double x1 = x + gc.xofst;
-		double y1 = y + gc.yofst;
+		double x1 = getx() + gc.xofst;
+		double y1 = gety() + gc.yofst;
 
 		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0, 0.5, 0));
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, GREEN, 1.0);
@@ -532,7 +557,7 @@ public:
 	void setPos(int newpos) {
 		if (pos != newpos) {
 			pos = newpos;
-			setx( 64 * pos);
+			setx(NT_STEPSIZE * pos);
 		}
 	}
 
@@ -556,14 +581,21 @@ public:
 	};
 };
 
-class MutationMenu : public Panel {
+class MutationMenu : public Container {
 private:
 public:
 	MutationMenu() {
-//		auto btn = Button::build(0, "Reverse Complement").layout (Layout::LEFT TOP_W_H, 10, 10, 80, 20).build();
-//		add (btn);
-	}
-};
+
+		add (Button::build(0, "Rev. Comp.").layout(Layout::LEFT_TOP_W_H, 10, 10, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Transition").layout(Layout::LEFT_TOP_W_H, 10, 30, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Transversion").layout(Layout::LEFT_TOP_W_H, 10, 50, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Complement").layout(Layout::LEFT_TOP_W_H, 10, 70, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert A").layout(Layout::LEFT_TOP_W_H, 100, 10, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert T").layout(Layout::LEFT_TOP_W_H, 100, 30, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert C").layout(Layout::LEFT_TOP_W_H, 100, 50, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert G").layout(Layout::LEFT_TOP_W_H, 100, 70, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Deletion").layout(Layout::LEFT_TOP_W_H, 100, 90, BUTTONW, BUTTONH).get());
+	}};
 
 class GameImpl : public Game {
 private:
@@ -596,7 +628,7 @@ public:
 		add(menu);
 
 		mutationCursor = make_shared<MutationCursor>(currentDNA, MutationId::COMPLEMENT);
-		mutationCursor->setxy(100, 400);
+		mutationCursor->sety(400);
 		add(mutationCursor);
 	}
 
@@ -626,7 +658,7 @@ public:
 			world.push_back(aaSprite);
 			group.push_back(aaSprite);
 
-			xco += 160;
+			xco += AA_STEPSIZE;
 		}
 
 	}
@@ -644,7 +676,7 @@ public:
 			auto ntSprite = make_shared<NucleotideSprite>(xco, yco, nt);
 			world.push_back(ntSprite);
 			geneGroup.push_back(ntSprite);
-			xco += 48;
+			xco += NT_STEPSIZE;
 		}
 
 	}

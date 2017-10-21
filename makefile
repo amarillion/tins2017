@@ -7,8 +7,8 @@ BUILD=DEBUG
 TWIST_HOME=twist5
 CXX = g++
 LD = g++
-#CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_CURL
-CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused
+#CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE -DUSE_CURL
+CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE
 LFLAGS =
 #LIBS= -lcurl
 LIBS=
