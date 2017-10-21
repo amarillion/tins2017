@@ -2,13 +2,15 @@
 
 void DataWrapper::FireEvent (int code)
 {
-    std::list <DataListener *> :: iterator i;
+	// notify all listeners of event
+	for (auto i : listeners)
+	{
+		i->changed (code);
+	}
 
-    // notify all listeners of event
-    for (i = listeners.begin(); i != listeners.end(); ++i)
-    {
-        (*i)->changed (code);
-    }
+	for (auto i : listenerFunctions) {
+		i.second(code);
+	}
 }
 
 void DataWrapper::AddListener (DataListener* listener)
@@ -21,3 +23,17 @@ void DataWrapper::RemoveListener (DataListener *listener)
     listeners.remove (listener);
 }
 
+void DataWrapper::RemoveListener (int handle) {
+	auto it = listenerFunctions.find(handle);
+	if (it != listenerFunctions.end()) {
+		listenerFunctions.erase (it);
+	}
+}
+
+int DataWrapper::AddListener (const DataListenerFunction &listener)
+{
+	int result = nextFunctionHandle;
+    listenerFunctions[nextFunctionHandle] = listener;
+    nextFunctionHandle++;
+    return result;
+}

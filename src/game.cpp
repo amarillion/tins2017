@@ -11,6 +11,8 @@
 #include "button.h"
 #include "panel.h"
 
+#include "data.h"
+
 using namespace std;
 
 enum class AminoAcid {
@@ -202,9 +204,11 @@ protected:
 
 public:
 	bool isAlive() { return alive; }
+	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
 	bool isVisible() { return visible; }
 	virtual void draw(const GraphicsContext &gc) {};
 	virtual void update() {};
+
 	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {}
 	virtual ~Sprite() {}
 };
@@ -262,39 +266,98 @@ public:
 
 };
 
-class PeptideModel {
-
+/** grouping of sprites
+ *
+ * Note that sprites may always be members of multiple groups.
+ *
+ * SpriteGroups may be used for
+ * - drawing
+ * - updating
+ * - z-ranking
+ * collections of sprites
+ *
+ * But also for laying them out together, building a hierarchy of sprites,
+ * or simply remembering which group of sprites belong together
+ */
+class SpriteGroup : public Sprite {
 private:
-	vector<int> pept;
+	list<shared_ptr<Sprite>> sprites;
+
 public:
 
-	PeptideModel() : pept() {
+	void push_back(const shared_ptr<Sprite> &val) {
+		sprites.push_back(val);
 	}
 
-	PeptideModel (vector<int> pept) : pept(pept) {
-
+	void killAll() {
+		for (auto sp : sprites) {
+			sp->kill();
+		}
+		sprites.clear();
 	}
 
-	size_t size() {
-		return pept.size();
+	virtual void update() {
+		for (auto i : sprites)
+		{
+			if (i->isAlive()) i->update();
+		}
+
+		sprites.remove_if ( [](shared_ptr<Sprite> i) { return !(i->isAlive()); });
 	}
 
-	int at(int idx) {
-		return pept[idx];
+	virtual void draw (const GraphicsContext &gc) {
+		for (auto i : sprites)
+		{
+			if (i->isAlive() && i->isVisible()) i->draw(gc);
+		}
 	}
 
 };
 
-class DNAModel {
+using Peptide = vector<int>;
+using OligoNt = string;
+
+enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
+
+class PeptideModel : public DataWrapper {
+
 private:
-	string data;
+	Peptide data;
+public:
+
+	PeptideModel() : data() {
+	}
+
+	void setValue(Peptide val) {
+		if (data != val) {
+			data = val;
+			FireEvent(EVT_PEPT_CHANGED);
+		}
+	}
+
+	size_t size() {
+		return data.size();
+	}
+
+	int at(int idx) {
+		return data[idx];
+	}
+
+};
+
+class DNAModel : public DataWrapper {
+private:
+	OligoNt data;
 public:
 	DNAModel() : data() {
 	}
 
-	DNAModel(string init) {
-		data = init;
-	};
+	void setValue(OligoNt val) {
+		if (data != val) {
+			data = val;
+			FireEvent(EVT_OLIGO_CHANGED);
+		}
+	}
 
 	size_t size() {
 		return data.size();
@@ -304,9 +367,9 @@ public:
 		return data.at(idx);
 	}
 
-	PeptideModel translate() {
+	Peptide translate() {
 
-		vector<int> pept;
+		Peptide pept;
 
 		for (size_t i = 0; i < data.size(); i += 3) {
 
@@ -318,7 +381,7 @@ public:
 			pept.push_back(aa);
 		}
 
-		return PeptideModel(pept);
+		return pept;
 	}
 
 	char getComplement(char nt) {
@@ -355,7 +418,8 @@ public:
 	}
 
 	void applyMutation (int pos, MutationId mutation) {
-		Assert (pos >= 0 && pos < data.size(), "pos is out of range");
+		Assert (pos >= 0 && pos < (int)data.size(), "pos is out of range");
+		OligoNt oldData = data;
 		switch (mutation) {
 		case MutationId::COMPLEMENT:
 			data[pos] = getComplement(data[pos]);
@@ -388,6 +452,10 @@ public:
 			Assert (false, "Invalid mutation id");
 			break;
 		}
+
+		if (oldData != data) {
+			FireEvent(EVT_OLIGO_CHANGED);
+		}
 	}
 
 	/** in-place modification. Turn this DNA sequence into its reverse complement */
@@ -399,8 +467,6 @@ public:
 
 		data = newData;
 	}
-
-
 };
 
 class MutationCursor : public IComponent {
@@ -465,7 +531,10 @@ private:
 	int currentLevel;
 	shared_ptr<CodonTableView> codonTableView;
 
-	list<shared_ptr<Sprite>> sprites;
+	SpriteGroup world;
+	SpriteGroup geneGroup;
+	SpriteGroup targetPeptideGroup;
+	SpriteGroup currentPeptideGroup;
 
 	DNAModel currentDNA;
 	PeptideModel targetPeptide;
@@ -473,9 +542,11 @@ private:
 
 	shared_ptr<MutationCursor> mutationCursor;
 	shared_ptr<MutationMenu> menu;
+
+
 public:
 
-	GameImpl() : currentLevel(0), sprites() {
+	GameImpl() : currentLevel(0), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -502,7 +573,9 @@ public:
 		initGame();
 	}
 
-	void peptideToSprites(PeptideModel &pep, int ax, int ay) {
+	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
+
+		group.killAll();
 
 		int xco = ax;
 		int yco = ay;
@@ -511,31 +584,27 @@ public:
 			int aaIdx = pep.at(i);
 
 			auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
-			sprites.push_back(aaSprite);
+			world.push_back(aaSprite);
+			group.push_back(aaSprite);
 
 			xco += 160;
 		}
 
 	}
 
-	void generateCureSprites() {
-
-		LevelInfo *lev = &levelInfo[currentLevel];
-
-		peptideToSprites(targetPeptide, 10, 100);
-		peptideToSprites(currentPeptide, 10, 200);
-	}
-
-	void generateGeneSprites() {
+	void generateGeneSprites(DNAModel &oligo) {
 
 		int xco = 10;
 		int yco = 300;
 
-		for (size_t i = 0; i < currentDNA.size(); ++i) {
-			char nt = currentDNA.at(i);
+		geneGroup.killAll();
+
+		for (size_t i = 0; i < oligo.size(); ++i) {
+			char nt = oligo.at(i);
 
 			auto ntSprite = make_shared<NucleotideSprite>(xco, yco, nt);
-			sprites.push_back(ntSprite);
+			world.push_back(ntSprite);
+			geneGroup.push_back(ntSprite);
 			xco += 48;
 		}
 
@@ -545,28 +614,36 @@ public:
 
 		LevelInfo *lev = &levelInfo[currentLevel];
 
-		currentDNA = DNAModel(lev->startGene);
+		currentDNA.AddListener( [=] (int code) {
+			cout << "Current DNA updated" << endl;
+			currentPeptide.setValue(currentDNA.translate());
+			generateGeneSprites(currentDNA);
+		});
 
-		currentPeptide = currentDNA.translate();
+		currentPeptide.AddListener( [=] (int code) {
+			cout << "Current peptide updated" << endl;
+			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
+		});
 
-		vector<int> pept;
+		targetPeptide.AddListener( [=] (int code) {
+			cout << "Target peptide updated" << endl;
+			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
+		});
+
+
+		currentDNA.setValue(lev->startGene);
+
+		Peptide pept;
 		for (auto aa : lev->targetPeptide) {
 			int aaIdx = codonTable.getIndexByThreeLetterCode(aa);
 			pept.push_back(aaIdx);
 		}
-		targetPeptide = PeptideModel(pept);
+		targetPeptide.setValue(pept);
 
-		generateCureSprites();
-		generateGeneSprites();
 	}
 
 	virtual void update() override {
-		for (auto i : sprites)
-		{
-			if (i->isAlive()) i->update();
-		}
-
-		sprites.remove_if ( [](shared_ptr<Sprite> i) { return !(i->isAlive()); });
+		world.update();
 	}
 
 	virtual void draw(const GraphicsContext &gc) override {
@@ -578,10 +655,7 @@ public:
 
 		Container::draw(gc);
 
-		for (auto i : sprites)
-		{
-			if (i->isAlive() && i->isVisible()) i->draw(gc);
-		}
+		world.draw(gc);
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
