@@ -74,16 +74,16 @@ using DataListenerFunction = std::function<void(int)>;
 
 class DataWrapper
 {
-    private:
-        std::list <DataListener *> listeners;
-        int nextFunctionHandle = 0;
-        std::map <int, DataListenerFunction> listenerFunctions;
-    public:
-        void FireEvent(int code);
-        void AddListener (DataListener *listener);
-        int AddListener (const DataListenerFunction &listener);
-        void RemoveListener (DataListener *listener);
-        void RemoveListener (int handle);
+private:
+	std::list <DataListener *> listeners;
+	int nextFunctionHandle = 0;
+	std::map <int, DataListenerFunction> listenerFunctions;
+public:
+	void FireEvent(int code);
+	void AddListener (DataListener *listener);
+	int AddListener (const DataListenerFunction &listener);
+	void RemoveListener (DataListener *listener);
+	void RemoveListener (int handle);
 };
 
 #endif

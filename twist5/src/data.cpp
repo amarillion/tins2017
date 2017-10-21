@@ -15,12 +15,12 @@ void DataWrapper::FireEvent (int code)
 
 void DataWrapper::AddListener (DataListener* listener)
 {
-    listeners.push_back (listener);
+	listeners.push_back (listener);
 }
 
 void DataWrapper::RemoveListener (DataListener *listener)
 {
-    listeners.remove (listener);
+	listeners.remove (listener);
 }
 
 void DataWrapper::RemoveListener (int handle) {
@@ -33,7 +33,7 @@ void DataWrapper::RemoveListener (int handle) {
 int DataWrapper::AddListener (const DataListenerFunction &listener)
 {
 	int result = nextFunctionHandle;
-    listenerFunctions[nextFunctionHandle] = listener;
-    nextFunctionHandle++;
-    return result;
+	listenerFunctions[nextFunctionHandle] = listener;
+	nextFunctionHandle++;
+	return result;
 }

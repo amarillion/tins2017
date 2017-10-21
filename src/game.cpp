@@ -13,6 +13,7 @@
 #include "button.h"
 
 #include "data.h"
+#include "messagebox.h"
 
 using namespace std;
 
@@ -57,7 +58,20 @@ enum class MutationId {
 };
 
 struct MutationInfo {
-	int cardId;
+	string name;
+};
+
+const int NUM_MUTATIONS = 9;
+MutationInfo mutationInfo[NUM_MUTATIONS] {
+	{ "TRANSVERSION" },
+	{ "TRANSITION" },
+	{ "COMPLEMENT" },
+	{ "REVERSE_COMPLEMENT" },
+	{ "INSERT A" },
+	{ "INSERT C" },
+	{ "INSERT T" },
+	{ "INSERT_G" },
+	{ "DELETION" }
 };
 
 const int NUM_NUCLEOTIDES = 4;
@@ -581,21 +595,46 @@ public:
 	};
 };
 
+class MutationCard : public IComponent {
+private:
+	int mutationId;
+	MutationInfo *info;
+public:
+	MutationCard(int mutationId) : mutationId(mutationId) {
+		setDimension(BUTTONW, BUTTONH);
+		info = &mutationInfo[mutationId];
+	}
+
+	virtual void draw (const GraphicsContext &gc) override {
+
+		double x1 = getx() + gc.xofst;
+		double y1 = gety() + gc.yofst;
+		double x2 = x1 + getw();
+		double y2 = y1 + geth();
+		al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb_f(0, 0.5, 0));
+		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
+
+		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
+	}
+};
+
 class MutationMenu : public Container {
 private:
 public:
 	MutationMenu() {
 
+
 		add (Button::build(0, "Rev. Comp.").layout(Layout::LEFT_TOP_W_H, 10, 10, BUTTONW, BUTTONH).get());
 		add (Button::build(0, "Transition").layout(Layout::LEFT_TOP_W_H, 10, 30, BUTTONW, BUTTONH).get());
 		add (Button::build(0, "Transversion").layout(Layout::LEFT_TOP_W_H, 10, 50, BUTTONW, BUTTONH).get());
 		add (Button::build(0, "Complement").layout(Layout::LEFT_TOP_W_H, 10, 70, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert A").layout(Layout::LEFT_TOP_W_H, 100, 10, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert T").layout(Layout::LEFT_TOP_W_H, 100, 30, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert C").layout(Layout::LEFT_TOP_W_H, 100, 50, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert G").layout(Layout::LEFT_TOP_W_H, 100, 70, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Deletion").layout(Layout::LEFT_TOP_W_H, 100, 90, BUTTONW, BUTTONH).get());
-	}};
+		add (Button::build(0, "Insert A").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 10, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert T").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 30, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert C").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 50, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Insert G").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 70, BUTTONW, BUTTONH).get());
+		add (Button::build(0, "Deletion").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 90, BUTTONW, BUTTONH).get());
+	}
+};
 
 class GameImpl : public Game {
 private:
@@ -624,10 +663,10 @@ public:
 		add (codonTableView);
 
 		menu = make_shared<MutationMenu>();
-		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 200, 200);
+		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
 		add(menu);
 
-		mutationCursor = make_shared<MutationCursor>(currentDNA, MutationId::COMPLEMENT);
+		mutationCursor = make_shared<MutationCursor>(currentDNA, MutationId::TRANSITION);
 		mutationCursor->sety(400);
 		add(mutationCursor);
 	}
@@ -636,12 +675,29 @@ public:
 	}
 
 	virtual void initGame() override {
+
+		currentDNA.AddListener( [=] (int code) {
+			cout << "Current DNA updated" << endl;
+			currentPeptide.setValue(currentDNA.translate());
+			generateGeneSprites(currentDNA);
+		});
+
+		currentPeptide.AddListener( [=] (int code) {
+			cout << "Current peptide updated" << endl;
+			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
+			checkWinCondition();
+		});
+
+		targetPeptide.AddListener( [=] (int code) {
+			cout << "Target peptide updated" << endl;
+			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
+		});
+
 		initLevel();
 	}
 
 	virtual void init() override {
 		font = al_create_builtin_font(); // TODO fragile initialization of global... Wrap font in a Singleton...
-		initGame();
 	}
 
 	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
@@ -684,30 +740,13 @@ public:
 	void checkWinCondition() {
 		if (currentPeptide.getValue() == targetPeptide.getValue()) {
 			cout << "You've completed the level!" << endl;
+			MessageBox::showMessage("Complete", "You completed the level", "OK", nullptr, nullptr);
 		}
 	}
 
 	void initLevel() {
 
 		LevelInfo *lev = &levelInfo[currentLevel];
-
-		currentDNA.AddListener( [=] (int code) {
-			cout << "Current DNA updated" << endl;
-			currentPeptide.setValue(currentDNA.translate());
-			generateGeneSprites(currentDNA);
-		});
-
-		currentPeptide.AddListener( [=] (int code) {
-			cout << "Current peptide updated" << endl;
-			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
-			checkWinCondition();
-		});
-
-		targetPeptide.AddListener( [=] (int code) {
-			cout << "Target peptide updated" << endl;
-			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
-		});
-
 
 		currentDNA.setValue(lev->startGene);
 
