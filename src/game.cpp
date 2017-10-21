@@ -98,7 +98,19 @@ int getNucleotideIndex(char c) {
 		return 0;
 	break;
 	}
+}
 
+ALLEGRO_COLOR getNucleotideColor(int idx, float shade) {
+	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
+	Assert (idx >= 0 && idx < NUM_NUCLEOTIDES, "idx is not in range");
+
+	switch (idx) {
+	case 0: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
+	case 1: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
+	case 2: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
+	case 3: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
+	default: return BLACK;
+	}
 }
 
 class CodonTable {
@@ -218,21 +230,26 @@ private:
 
 	NucleotideInfo *info;
 	char code;
+	int idx;
 public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
 		this->y = y;
 		w = 32;
 		h = 64;
-		info = &nucleotideInfo[getNucleotideIndex(code)];
+		idx = getNucleotideIndex(code);
+		info = &nucleotideInfo[idx];
 	}
 
 	virtual void draw(const GraphicsContext &gc) {
 		double x1 = x + gc.xofst;
 		double y1 = y + gc.yofst;
 
-		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0.5, 0, 0));
-		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
+		ALLEGRO_COLOR mainColor = getNucleotideColor(idx, 0.5);
+		ALLEGRO_COLOR shadeColor = getNucleotideColor(idx, 1.0);
+
+		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, shadeColor);
+		al_draw_rectangle(x1, y1, x1 + w, y1 + h, mainColor, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
 	};
@@ -262,6 +279,25 @@ public:
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, info->threeLetterCode.c_str());
+
+		// draw the DNA target sequences...
+
+		int yco = y1 + 20;
+		for (auto codon : info->codons) {
+			for (int c = 0; c < 3; ++c) {
+
+				int xco = x1 + c * 12 + 4;
+
+				char nt = codon.at(c);
+				int ntIdx = getNucleotideIndex(nt);
+				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
+				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
+
+				al_draw_filled_rectangle(xco, yco, xco + 8, yco + 6, shadeCol);
+				al_draw_rectangle(xco, yco, xco + 8, yco + 6, mainCol, 1.0);
+			}
+			yco += 8;
+		}
 	};
 
 };
@@ -343,6 +379,9 @@ public:
 		return data[idx];
 	}
 
+	Peptide getValue() {
+		return data; // should be copy
+	}
 };
 
 class DNAModel : public DataWrapper {
@@ -610,6 +649,12 @@ public:
 
 	}
 
+	void checkWinCondition() {
+		if (currentPeptide.getValue() == targetPeptide.getValue()) {
+			cout << "You've completed the level!" << endl;
+		}
+	}
+
 	void initLevel() {
 
 		LevelInfo *lev = &levelInfo[currentLevel];
@@ -623,6 +668,7 @@ public:
 		currentPeptide.AddListener( [=] (int code) {
 			cout << "Current peptide updated" << endl;
 			peptideToSprites(currentPeptide, currentPeptideGroup, 10, 200);
+			checkWinCondition();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
@@ -647,7 +693,7 @@ public:
 	}
 
 	virtual void draw(const GraphicsContext &gc) override {
-		al_clear_to_color(BLACK);
+		al_clear_to_color(WHITE);
 		if (Engine::isDebug())
 		{
 			al_draw_text(Engine::getFont(), LIGHT_BLUE, 0, 0, ALLEGRO_ALIGN_LEFT, "DEBUG ON");
