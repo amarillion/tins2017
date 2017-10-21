@@ -609,38 +609,91 @@ public:
 	virtual void handleEvent(ALLEGRO_EVENT &event) override;
 };
 
-struct Operation {
-	MutationId mutation;
-	int pos;
+struct Solution {
+	vector<MutationId> mutations;
+	vector<int> positions;
 };
-using Solution = vector<Operation>();
 
 class PuzzleAnalyzer {
 private:
 	LevelInfo level;
+	Solution currentSolution;
 
-	vector<Solution> solutions;
+	PuzzleAnalyzer(LevelInfo level) : level(level) {
 
-	PuzzleAnalyzer(LevelInfo level) : level(level) {}
+		// initalize currentSolutions
+		currentSolution = firstSolution(level);
+	}
 
-	void bruteForceInOrder(vector<MutationId> mutationCards, int idx, OligoNt current, Solution solution) {
-		MutationId currentMutation = mutationCards[idx];
+	static Solution firstSolution(LevelInfo level) {
+		Solution result;
+		result.mutations = level.mutationCards;
+		std::sort (result.mutations.begin(),
+				result.mutations.end());
+		result.positions.resize(result.mutations.size(), 0);
+		return result;
+	}
 
-		for (size_t pos = 0; pos < current.size(); ++pos) {
-			OligoNt next = DNAModel::applyMutation (current, pos, currentMutation); // makes a copy
+	static bool nextSolution(Solution &solution, const LevelInfo &level) {
+		int size = level.startGene.size();
+		// calculate the maximums...
+		vector<int> sizes;
 
-			if (idx == (int)mutationCards.size()-1) {
-				// leave node
-
-				// add to result set.
-				// For now, just print....
-				cout << next << endl;
+		for (auto mut : solution.mutations) {
+			switch (mut) {
+			case MutationId::REVERSE_COMPLEMENT:
+				sizes.push_back(0);
+				break;
+			case MutationId::COMPLEMENT:
+			case MutationId::TRANSITION:
+			case MutationId::TRANSVERSION:
+				sizes.push_back (size);
+				break;
+			case MutationId::INSERTION_A:
+			case MutationId::INSERTION_C:
+			case MutationId::INSERTION_T:
+			case MutationId::INSERTION_G:
+				sizes.push_back (size);
+				size++;
+				break;
+			case MutationId::DELETION:
+				sizes.push_back (size);
+				size--;
+				break;
 			}
-			else {
-				bruteForceInOrder(mutationCards, idx + 1, next);
-			}
-
 		}
+
+		// transform the positions
+		int pos = solution.mutations.size() - 1;
+
+		bool carry = true;
+		while (carry) {
+			solution.positions[pos] += 1;
+			if (solution.positions[pos] >= sizes[pos]) {
+				solution.positions[pos] = 0;
+				carry = true;
+				pos--;
+				if (pos < 0) {
+					break;
+				}
+			} else {
+				carry = false;
+			}
+		}
+
+		bool result = true;
+		if (carry) {
+			result = std::next_permutation(solution.mutations.begin(), solution.mutations.end());
+		}
+
+		return result;
+	}
+
+	static void showSolution(const Solution &solution, const LevelInfo &level) {
+		for (int i = 0; i < solution.mutations.size(); ++i) {
+			cout << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
+		}
+		cout << endl;
 	}
 
 	void bruteForce() {
@@ -648,13 +701,8 @@ private:
 		OligoNt current = level.startGene;
 		std::sort (mutationCards.begin(), mutationCards.end());
 		do {
-			for (auto mut : mutationCards) {
-				cout << (int)mut << " ";
-			}
-			cout << endl;
-			Solution base;
-			bruteForceInOrder(mutationCards, 0, current, base);
-		} while (std::next_permutation(level.mutationCards.begin(), level.mutationCards.end()));
+			showSolution(currentSolution, level);
+		} while (nextSolution(currentSolution, level));
 	}
 
 public:
