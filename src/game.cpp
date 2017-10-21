@@ -14,6 +14,7 @@
 
 #include "data.h"
 #include "messagebox.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -94,36 +95,44 @@ struct LevelInfo {
 	string startGene;
 
 	// cards available in this level
-	vector<MutationId> cards;
+	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 1;
+const int NUM_LEVELS = 7;
 LevelInfo levelInfo[NUM_LEVELS] = {
-	{ { "Trp", "Val", "Thr" }, "TGAGTTACC", { MutationId::TRANSVERSION } }
+	{ { "Trp", "Val" }, "TGTGTT", { MutationId::TRANSVERSION } },
+	{ { "Ala", "Met" }, "GCTACG", { MutationId::TRANSITION } },
+
+	{ { "Leu", "Lys" }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+
+	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::COMPLEMENT } },
+	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::REVERSE_COMPLEMENT } },
+	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::DELETION } },
+	{ { "Trp", "Val", "Thr" }, "TGTGTTACC", { MutationId::INSERTION_T } }
 };
 
-int getNucleotideIndex(char c) {
+Nucleotide getNucleotideIndex(char c) {
 	switch(c) {
 	//TODO: use reverse lookup of NucleotideInfo instead of hard-coding order...
-	case 'T': return 0;
-	case 'C': return 1;
-	case 'A': return 2;
-	case 'G': return 3;
+	case 'T': return Nucleotide::T;
+	case 'C': return Nucleotide::C;
+	case 'A': return Nucleotide::A;
+	case 'G': return Nucleotide::G;
 	default: Assert (false, "Not a valid nucleotide character");
-		return 0;
+		return Nucleotide::A; //DUMMY value
 	break;
 	}
 }
 
-ALLEGRO_COLOR getNucleotideColor(int idx, float shade) {
+ALLEGRO_COLOR getNucleotideColor(Nucleotide idx, float shade) {
 	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
-	Assert (idx >= 0 && idx < NUM_NUCLEOTIDES, "idx is not in range");
+	Assert ((int)idx >= 0 && (int)idx < NUM_NUCLEOTIDES, "idx is not in range");
 
 	switch (idx) {
-	case 0: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
-	case 1: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
-	case 2: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
-	case 3: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
+	case Nucleotide::T: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
+	case Nucleotide::C: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
+	case Nucleotide::A: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
+	case Nucleotide::G: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
 	default: return BLACK;
 	}
 }
@@ -162,9 +171,9 @@ public:
 		Assert (val.size() == 3, "Not a valid codon string");
 
 		return getCodonIndex(
-			getNucleotideIndex(val.at(0)),
-			getNucleotideIndex(val.at(1)),
-			getNucleotideIndex(val.at(2))
+			(int)getNucleotideIndex(val.at(0)),
+			(int)getNucleotideIndex(val.at(1)),
+			(int)getNucleotideIndex(val.at(2))
 		);
 	}
 
@@ -232,6 +241,9 @@ const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 const int BUTTONW = 120;
 const int BUTTONH = 16;
 
+const int MUTCARD_W = 120;
+const int MUTCARD_H = 40;
+
 ALLEGRO_FONT *font;
 
 class Sprite
@@ -262,7 +274,7 @@ private:
 
 	NucleotideInfo *info;
 	char code;
-	int idx;
+	Nucleotide idx;
 public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
@@ -270,7 +282,7 @@ public:
 		w = NT_WIDTH;
 		h = NT_HEIGHT;
 		idx = getNucleotideIndex(code);
-		info = &nucleotideInfo[idx];
+		info = &nucleotideInfo[(int)idx];
 	}
 
 	virtual void draw(const GraphicsContext &gc) {
@@ -327,7 +339,7 @@ public:
 				int xco = x1 + c * INTERNAL_STEPSIZE + AA_PADDING;
 
 				char nt = codon.at(c);
-				int ntIdx = getNucleotideIndex(nt);
+				Nucleotide ntIdx = getNucleotideIndex(nt);
 				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
 				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
 
@@ -451,9 +463,9 @@ public:
 		for (size_t i = 0; i < data.size(); i += 3) {
 
 			int aa = codonTable.getCodon(
-					getNucleotideIndex(at(i)),
-					getNucleotideIndex(at(i+1)),
-					getNucleotideIndex(at(i+2))
+					(int)getNucleotideIndex(at(i)),
+					(int)getNucleotideIndex(at(i+1)),
+					(int)getNucleotideIndex(at(i+2))
 			);
 			pept.push_back(aa);
 		}
@@ -546,12 +558,19 @@ public:
 	}
 };
 
+void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
+	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
+	al_draw_rectangle(x1, y1, x2, y2, outer, w);
+}
+
+class GameImpl;
+
 class MutationCursor : public IComponent {
-	DNAModel &model;
+	GameImpl *parent;
 	int pos;
 	MutationId mutation;
 public:
-	MutationCursor(DNAModel &model, MutationId mutation) : model(model), pos(0), mutation(mutation) {
+	MutationCursor(GameImpl *parent, MutationId mutation) : parent(parent), pos(0), mutation(mutation) {
 		w = 32;
 		h = 32;
 		setLocation(0, 0, w, h);
@@ -566,6 +585,7 @@ public:
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, GREEN, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, "cursor");
+
 	}
 
 	void setPos(int newpos) {
@@ -575,34 +595,18 @@ public:
 		}
 	}
 
-	virtual void handleEvent(ALLEGRO_EVENT &event) override {
-		int newpos = pos;
-		if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-			switch (event.keyboard.keycode) {
-			case ALLEGRO_KEY_LEFT:
-				newpos = max (0, pos-1);
-				break;
-			case ALLEGRO_KEY_RIGHT:
-				newpos = min(pos+1, (int)model.size());
-				break;
-			case ALLEGRO_KEY_ENTER:
-				model.applyMutation(pos, mutation);
-				break;
-			}
-		}
-
-		setPos(newpos);
-	};
+	virtual void handleEvent(ALLEGRO_EVENT &event) override;
 };
 
-class MutationCard : public IComponent {
+class MutationCard : public Widget {
 private:
-	int mutationId;
+	GameImpl *parent;
+	MutationId mutationId;
 	MutationInfo *info;
 public:
-	MutationCard(int mutationId) : mutationId(mutationId) {
-		setDimension(BUTTONW, BUTTONH);
-		info = &mutationInfo[mutationId];
+	MutationCard(GameImpl *parent, MutationId mutationId) : parent(parent), mutationId(mutationId) {
+		setDimension(MUTCARD_W, MUTCARD_H);
+		info = &mutationInfo[static_cast<int>(mutationId)];
 	}
 
 	virtual void draw (const GraphicsContext &gc) override {
@@ -615,25 +619,57 @@ public:
 		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
+
+		drawLogo (40, 20);
 	}
-};
 
-class MutationMenu : public Container {
-private:
-public:
-	MutationMenu() {
+	void drawLogo (int dx, int dy) {
+		const int SIZE = 6;
+		const int SIZE_2 = SIZE / 2;
+		const int SPACING = 6;
+		const int STEP = SIZE + SPACING;
 
+		int xx = dx + getx();
+		int yy = dy + gety();
 
-		add (Button::build(0, "Rev. Comp.").layout(Layout::LEFT_TOP_W_H, 10, 10, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Transition").layout(Layout::LEFT_TOP_W_H, 10, 30, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Transversion").layout(Layout::LEFT_TOP_W_H, 10, 50, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Complement").layout(Layout::LEFT_TOP_W_H, 10, 70, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert A").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 10, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert T").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 30, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert C").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 50, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Insert G").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 70, BUTTONW, BUTTONH).get());
-		add (Button::build(0, "Deletion").layout(Layout::LEFT_TOP_W_H, BUTTONW + 20, 90, BUTTONW, BUTTONH).get());
+		int xm = xx + SIZE_2;
+		int ym = yy + SIZE_2;
+
+		switch (mutationId) {
+		case MutationId::COMPLEMENT:
+			al_draw_line (xm, ym, xm + STEP, ym + STEP, BLACK, 2.0);
+			al_draw_line (xm + STEP, ym, xm, ym + STEP, BLACK, 2.0);
+			break;
+		case MutationId::TRANSVERSION:
+			al_draw_line (xm, ym, xm, ym + STEP, BLACK, 2.0);
+			al_draw_line (xm + STEP, ym, xm + STEP, ym + STEP, BLACK, 2.0);
+			break;
+		case MutationId::TRANSITION:
+			al_draw_line (xm, ym, xm + STEP, ym, BLACK, 2.0);
+			al_draw_line (xm, ym + STEP, xm + STEP, ym + STEP, BLACK, 2.0);
+			break;
+		default: return; // don't draw any logo
+		}
+
+		drawOutlinedRect(xx, yy, xx + SIZE, yy + SIZE,
+				getNucleotideColor(Nucleotide::A, 1.0),
+				getNucleotideColor(Nucleotide::A, 0.5), 1.0);
+
+		drawOutlinedRect(xx + STEP, yy, xx + STEP + SIZE, yy + SIZE,
+				getNucleotideColor(Nucleotide::G, 1.0),
+				getNucleotideColor(Nucleotide::G, 0.5), 1.0);
+
+		drawOutlinedRect(xx, yy + STEP, xx + SIZE, yy + STEP + SIZE,
+				getNucleotideColor(Nucleotide::T, 1.0),
+				getNucleotideColor(Nucleotide::T, 0.5), 1.0);
+
+		drawOutlinedRect(xx + STEP, yy + STEP, xx + STEP + SIZE, yy + STEP + SIZE,
+				getNucleotideColor(Nucleotide::C, 1.0),
+				getNucleotideColor(Nucleotide::C, 0.5), 1.0);
+
 	}
+
+	virtual void MsgLPress(const Point &p) override;
 };
 
 class GameImpl : public Game {
@@ -649,32 +685,22 @@ private:
 	DNAModel currentDNA;
 	PeptideModel targetPeptide;
 	PeptideModel currentPeptide;
+	vector<MutationId> currentMutationCards; // TODO: also as model?
 
 	shared_ptr<MutationCursor> mutationCursor;
-	shared_ptr<MutationMenu> menu;
-
+	shared_ptr<Container> menu;
 
 public:
 
-	GameImpl() : currentLevel(0), world() {
+	GameImpl() : currentLevel(2), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
 		add (codonTableView);
 
-		menu = make_shared<MutationMenu>();
+		menu = make_shared<Container>();
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
 		add(menu);
-
-		mutationCursor = make_shared<MutationCursor>(currentDNA, MutationId::TRANSITION);
-		mutationCursor->sety(400);
-		add(mutationCursor);
-	}
-
-	virtual ~GameImpl() {
-	}
-
-	virtual void initGame() override {
 
 		currentDNA.AddListener( [=] (int code) {
 			cout << "Current DNA updated" << endl;
@@ -692,7 +718,12 @@ public:
 			cout << "Target peptide updated" << endl;
 			peptideToSprites(targetPeptide, targetPeptideGroup, 10, 100);
 		});
+	}
 
+	virtual ~GameImpl() {
+	}
+
+	virtual void initGame() override {
 		initLevel();
 	}
 
@@ -719,6 +750,27 @@ public:
 
 	}
 
+	void createMutationCursor(MutationId mutationId) {
+		if (mutationCursor) { mutationCursor->kill(); }
+
+		mutationCursor = make_shared<MutationCursor>(this, mutationId);
+		mutationCursor->sety(400);
+		add(mutationCursor);
+	}
+
+	void initMutationCards(vector<MutationId> mutations) {
+		menu->killAll();
+		int xco = menu->getx();
+		int yco = menu->gety();
+
+		for (auto mut : mutations) {
+			auto mutCard = make_shared<MutationCard>(this, mut);
+			mutCard->setxy(xco, yco);
+			menu->add (mutCard);
+			yco += MUTCARD_H + 4;
+		}
+	}
+
 	void generateGeneSprites(DNAModel &oligo) {
 
 		int xco = 10;
@@ -741,11 +793,14 @@ public:
 		if (currentPeptide.getValue() == targetPeptide.getValue()) {
 			cout << "You've completed the level!" << endl;
 			MessageBox::showMessage("Complete", "You completed the level", "OK", nullptr, nullptr);
+
+			currentLevel++;
+			initLevel();
 		}
 	}
 
 	void initLevel() {
-
+		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
 
 		currentDNA.setValue(lev->startGene);
@@ -757,10 +812,28 @@ public:
 		}
 		targetPeptide.setValue(pept);
 
+		currentMutationCards = lev->mutationCards;
+		initMutationCards(currentMutationCards);
+	}
+
+	int getOligoSize() {
+		return currentDNA.size();
+	}
+
+	void applyMutation (int pos, MutationId mutationId) {
+		currentDNA.applyMutation(pos, mutationId);
+
+		auto it = std::find(currentMutationCards.begin(), currentMutationCards.end(), mutationId);
+		if (it != currentMutationCards.end()) {
+			currentMutationCards.erase(it);
+		}
+
+		initMutationCards(currentMutationCards);
 	}
 
 	virtual void update() override {
 		world.update();
+		Container::update();
 	}
 
 	virtual void draw(const GraphicsContext &gc) override {
@@ -776,6 +849,8 @@ public:
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
+		Container::handleEvent(event);
+
 		if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
 			switch (event.keyboard.keycode) {
 				case ALLEGRO_KEY_F2:
@@ -795,3 +870,26 @@ shared_ptr<Game> Game::newInstance()
 }
 
 
+void MutationCard::MsgLPress(const Point &p) {
+	parent->createMutationCursor(mutationId);
+}
+
+
+void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
+	int newpos = pos;
+	if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+		switch (event.keyboard.keycode) {
+		case ALLEGRO_KEY_LEFT:
+			newpos = max (0, pos-1);
+			break;
+		case ALLEGRO_KEY_RIGHT:
+			newpos = min(pos+1, parent->getOligoSize());
+			break;
+		case ALLEGRO_KEY_ENTER:
+			parent->applyMutation(pos, mutation);
+			kill();
+			break;
+		}
+	}
+	setPos(newpos);
+};
