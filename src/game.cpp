@@ -90,9 +90,12 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 	{ 'G', "Guanosine" }
 };
 
+using Peptide = vector<int>;
+using OligoNt = string;
+
 struct LevelInfo {
 	vector<string> targetPeptide;
-	string startGene;
+	OligoNt startGene;
 
 	// cards available in this level
 	vector<MutationId> mutationCards;
@@ -400,9 +403,6 @@ public:
 
 };
 
-using Peptide = vector<int>;
-using OligoNt = string;
-
 enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
 
 class PeptideModel : public DataWrapper {
@@ -433,6 +433,7 @@ public:
 		return data; // should be copy
 	}
 };
+
 
 class DNAModel : public DataWrapper {
 private:
@@ -473,7 +474,7 @@ public:
 		return pept;
 	}
 
-	char getComplement(char nt) {
+	static char getComplement(char nt) {
 		switch (nt) {
 			case 'A': return 'T';
 			case 'T': return 'A';
@@ -484,7 +485,7 @@ public:
 		}
 	}
 
-	char getTransversion(char nt) {
+	static char getTransversion(char nt) {
 		switch (nt) {
 			case 'G': return 'T';
 			case 'T': return 'G';
@@ -495,7 +496,7 @@ public:
 		}
 	}
 
-	char getTransition(char nt) {
+	static char getTransition(char nt) {
 		switch (nt) {
 			case 'G': return 'A';
 			case 'A': return 'G';
@@ -506,9 +507,8 @@ public:
 		}
 	}
 
-	void applyMutation (int pos, MutationId mutation) {
-		Assert (pos >= 0 && pos < (int)data.size(), "pos is out of range");
-		OligoNt oldData = data;
+	static OligoNt applyMutation(const OligoNt &src, int pos, MutationId mutation) {
+		OligoNt data = src;
 		switch (mutation) {
 		case MutationId::COMPLEMENT:
 			data[pos] = getComplement(data[pos]);
@@ -523,7 +523,7 @@ public:
 			data.erase(pos, 1);
 			break;
 		case MutationId::REVERSE_COMPLEMENT:
-			reverseComplement();
+			data = reverseComplement(src);
 			break;
 		case MutationId::INSERTION_A:
 			data.insert(pos, "A");
@@ -541,6 +541,14 @@ public:
 			Assert (false, "Invalid mutation id");
 			break;
 		}
+		return data;
+	};
+
+	void applyMutation (int pos, MutationId mutation) {
+
+		Assert (pos >= 0 && pos < (int)data.size(), "pos is out of range");
+		OligoNt oldData = data;
+		data = applyMutation(data, pos, mutation);
 
 		if (oldData != data) {
 			FireEvent(EVT_OLIGO_CHANGED);
@@ -548,13 +556,12 @@ public:
 	}
 
 	/** in-place modification. Turn this DNA sequence into its reverse complement */
-	void reverseComplement() {
-		string newData;
-		for (char c : data) {
-			newData += getComplement(c);
+	static OligoNt reverseComplement(const OligoNt &src) {
+		OligoNt newData;
+		for (auto it = src.rbegin(); it != src.rend(); it++) {
+			newData += getComplement(*it);
 		}
-
-		data = newData;
+		return newData;
 	}
 };
 
@@ -596,6 +603,63 @@ public:
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override;
+};
+
+struct Operation {
+	MutationId mutation;
+	int pos;
+};
+using Solution = vector<Operation>();
+
+class PuzzleAnalyzer {
+private:
+	LevelInfo level;
+
+	vector<Solution> solutions;
+
+	PuzzleAnalyzer(LevelInfo level) : level(level) {}
+
+	void bruteForceInOrder(vector<MutationId> mutationCards, int idx, OligoNt current, Solution solution) {
+		MutationId currentMutation = mutationCards[idx];
+
+		for (size_t pos = 0; pos < current.size(); ++pos) {
+			OligoNt next = DNAModel::applyMutation (current, pos, currentMutation); // makes a copy
+
+			if (idx == (int)mutationCards.size()-1) {
+				// leave node
+
+				// add to result set.
+				// For now, just print....
+				cout << next << endl;
+			}
+			else {
+				bruteForceInOrder(mutationCards, idx + 1, next);
+			}
+
+		}
+	}
+
+	void bruteForce() {
+		vector<MutationId> mutationCards = level.mutationCards;
+		OligoNt current = level.startGene;
+		std::sort (mutationCards.begin(), mutationCards.end());
+		do {
+			for (auto mut : mutationCards) {
+				cout << (int)mut << " ";
+			}
+			cout << endl;
+			Solution base;
+			bruteForceInOrder(mutationCards, 0, current, base);
+		} while (std::next_permutation(level.mutationCards.begin(), level.mutationCards.end()));
+	}
+
+public:
+
+	static void analyze(LevelInfo level) {
+
+		PuzzleAnalyzer a = PuzzleAnalyzer(level);
+		a.bruteForce();
+	}
 };
 
 class MutationCard : public Widget {
@@ -692,7 +756,7 @@ private:
 
 public:
 
-	GameImpl() : currentLevel(0), world() {
+	GameImpl() : currentLevel(2), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -806,6 +870,8 @@ public:
 	void initLevel() {
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
+
+		PuzzleAnalyzer::analyze(*lev);
 
 		currentDNA.setValue(lev->startGene);
 
