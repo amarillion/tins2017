@@ -180,10 +180,11 @@ public:
 			"{"
 			"	vec2 st = gl_FragCoord.xy;"
 			"	vec3 color = vec3(0.0);"
-			"	float checkSize = 8.0;"
+			"	float checkSize = 3.0;"
 			"	st /= checkSize;"
-			"	float fmodResult = mod(floor(st.x) + floor(st.y), 2.0);"
-			"	if (fmodResult < 1.0) {"
+			"	float cellNo = mod(floor(st.x), 8.0) + 8.0 * mod(floor(st.y), 8.0);"
+			"	float fmodResult = mod (floor(cellNo / 17.0) + mod(cellNo, 17.0) * 17.0, 64.0);"
+			"	if (fmodResult / 64.0 < uTime) {"
 			"		discard;"
 			"	}"
 			"	if ( al_use_tex )\n"
@@ -221,7 +222,7 @@ public:
 
 	void enable(float time) {
 		al_use_shader(shader);
-		al_set_shader_float("time", time);
+		al_set_shader_float("uTime", time);
 	}
 
 
@@ -448,6 +449,9 @@ private:
 	char code;
 	NT idx;
 	DissolveEffect dissolve; // TODO - make static but initialize at the right moment...
+	bool isAnimating = false;
+	const int MAX_COUNTER = 100;
+	int counter = 0;
 public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
@@ -473,10 +477,30 @@ public:
 
 	virtual void draw(const GraphicsContext &gc) {
 		int msec = (MainLoop::getMainLoop()->getMsecCounter() % 1000);
-		dissolve.withPattern((float)msec/1000.0f,
-			[=]() {	drawCard(gc); }
-		);
+		if (isAnimating) {
+			dissolve.withPattern( (float)counter/(float)MAX_COUNTER,
+				[=]() {	drawCard(gc); }
+			);
+		}
+		else {
+			drawCard(gc);
+		}
 	};
+
+	void update() {
+		if (isAnimating) {
+			counter++;
+			if (counter > MAX_COUNTER) {
+				kill();
+			}
+		}
+	}
+
+	void startDissolve() {
+		isAnimating = true;
+		counter = 0;
+	}
+
 };
 
 
@@ -553,6 +577,10 @@ public:
 
 	void push_back(const shared_ptr<Sprite> &val) {
 		sprites.push_back(val);
+	}
+
+	void push_front(const shared_ptr<Sprite> &val) {
+		sprites.push_front(val);
 	}
 
 	void killAll() {
@@ -1058,7 +1086,7 @@ private:
 	shared_ptr<CodonTableView> codonTableView;
 
 	SpriteGroup world;
-	SpriteGroup geneGroup;
+	list<shared_ptr<NucleotideSprite>> geneGroup;
 	SpriteGroup targetPeptideGroup;
 	SpriteGroup currentPeptideGroup;
 
@@ -1110,11 +1138,9 @@ public:
 
 		Resources *res = Engine::getResources();
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
-		img1->setZoom(2.0);
 		add(img1);
 
 		auto img2 = AnimComponent::build(res->getAnim("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 20, 300, 200).get();
-//		img2->setZoom(2.0);
 		add(img2);
 
 		auto balloon = make_shared<TextBalloon>();
@@ -1203,13 +1229,15 @@ public:
 		int xco = 10;
 		int yco = GENE_Y;
 
-		geneGroup.killAll();
+		for (auto sp : geneGroup) {
+			sp->startDissolve();
+		}
 
 		for (size_t i = 0; i < oligo.size(); ++i) {
 			char nt = oligo.at(i);
 
 			auto ntSprite = make_shared<NucleotideSprite>(xco, yco, nt);
-			world.push_back(ntSprite);
+			world.push_front(ntSprite); // insert below any dissolving sprites...
 			geneGroup.push_back(ntSprite);
 			xco += NT_STEPSIZE;
 		}
