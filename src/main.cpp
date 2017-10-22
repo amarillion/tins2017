@@ -13,7 +13,7 @@ int main(int argc, const char *const *argv)
 		.setTitle("TINS 2017!")
 		.setAppName("tins17");
 
-	mainloop.setDimension(800, 600);
+	mainloop.setDimension(960, 600);
 
 	mainloop.init(argc, argv);
 	engine->init();

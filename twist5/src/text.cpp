@@ -54,6 +54,7 @@ private:
 		blink = false;
 	}
 
+	ActionFunc actionFunc;
 protected:
 	virtual void changed(int code = 0) override
 	{
@@ -70,7 +71,7 @@ public:
 		color(color), align(_align), isPerLetter(false),
 		letterDelta(100), letterColorGenerator(), motion(), letterMotion(), model(),
 		typewriterPos(0), typewritingMode(OFF), typewriterDelay(0),
-		elems(), lineh(0), blink(false)
+		elems(), lineh(0), blink(false), actionFunc()
 	{
 		model = make_shared<TextModel>(aText); // generate default model
 		model->AddListener(this);
@@ -123,6 +124,15 @@ public:
 	{ style = _style; }
 
 	virtual void setLetterDelta (int delta) override { letterDelta = delta; }
+
+	virtual void onAnimationComplete(ActionFunc aActionFunc) override {
+		actionFunc = aActionFunc;
+	}
+
+	void handleAnimationComplete() {
+		pushMsg (MSG_ANIMATION_DONE);
+		if (actionFunc) { actionFunc(); }
+	}
 
 	virtual void setTextf(const char *msg, ...) override
 	{
@@ -255,7 +265,7 @@ void TextImpl::update() {
 			showlines++;
 			if (showlines > elems.size())
 			{
-				pushMsg(MSG_ANIMATION_DONE);
+				handleAnimationComplete();
 				typewritingMode = Text::OFF;
 			}
 		}
@@ -270,7 +280,7 @@ void TextImpl::update() {
 			// send message when animation is finished
 			if (typewriterPos >= model->getText().size())
 			{
-				pushMsg(MSG_ANIMATION_DONE);
+				handleAnimationComplete();
 				typewritingMode = Text::OFF;
 				typewriterPos = 0;
 			}

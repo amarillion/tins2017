@@ -16,9 +16,9 @@ void Engine::init()
 
 	resources->addDir("data");
 
-	font = resources->getFont("builtin_font");
+	font = resources->getFont("DejaVuSans_16");
 	if (!font) {
-		allegro_message("Error loading \"data/fixed_font.tga\".\n");
+		allegro_message("Error loading font.\n");
 		exit(1);
 	}
 

@@ -55,6 +55,7 @@ public:
 	virtual void setLetterDelta (int delta) = 0;
 	virtual void setStyle(int style) = 0;
 
+	virtual void onAnimationComplete(ActionFunc actionFunc) = 0;
 	static ComponentBuilder<Text> build(int _align, std::string val);
 	static ComponentBuilder<Text> build(ALLEGRO_COLOR _color, std::string val);
 	static ComponentBuilder<Text> build(ALLEGRO_COLOR _color, int _align, std::string val);

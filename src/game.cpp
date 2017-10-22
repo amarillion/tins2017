@@ -96,7 +96,59 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 using Peptide = vector<AA>;
 using OligoNt = string;
 
+enum class Cmd { SAY, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION };
+
+struct Statement {
+	Cmd cmd;
+	string text;
+};
+
+using Script = vector<Statement>;
+
+const int NUM_SCRIPTS = 5;
+Script scripts[NUM_SCRIPTS] = {
+	{
+		// 0: effectively no script
+		{ Cmd::ACTIVATE_ALL, "" },
+	}, {
+		// 1
+		{ Cmd::SAY, "Ok, let's have a look at our patient." },
+		{ Cmd::SAY, "Ah yes, I see. The patient needs antibiotics,\nadministered directly in the cells.\n"
+					"We need the antibiotic to be a peptide,\nthat is, a short chain of amino acids." },
+		{ Cmd::SAY, "With a targeted gene mutation,\nthe patients own cells will generate the peptide.\n"
+				"We'll use our silly mutation weapon here to mutate the patient.\n"
+				"Don't worry, this won't hurt a bit.\nI mean, I'm almost certain it won't hurt.\n"
+				"I mean, this probably won't hurt\n" },
+		{ Cmd::SAY, "OK, this might hurt a little." },
+		{ Cmd::SAY, "This is the peptide we need." },
+		{ Cmd::SAY, "This gene looks almost right. We just need one mutation.\n"
+				"A transversion is all we need.\n"
+				"A transversion mutates an A into a C, or a G into a T. Or vice versa.\n"
+				"The symbols on the transversion can help you remember this."
+		},
+	}, {
+		// 2
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "A transversion is a different kind of mutation than a transition.\n"
+					"It mutates an A into a C (not a T).\n"
+					"Look at the symbol on the card to remember" },
+	}, {
+		// 3
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "The complement of a nucleotide.\n"
+					"Is the one it pairs with.\n"
+					"G pairs with C, A pairs with T." },
+	}, {
+		// 4
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "Sometimes a mutation deletes a base.\n"
+					"This causes a frame shift.\n"
+					"With lots of changes downstream." },
+	}
+};
+
 struct LevelInfo {
+	int scriptId; // -1 for none
 	Peptide targetPeptide;
 	OligoNt startGene;
 
@@ -107,23 +159,23 @@ struct LevelInfo {
 const int NUM_LEVELS = 10;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
-	{ { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
-	{ { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
+	{  1, { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
+	{  2, { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
 
-	{ { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+	{  0, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
-	{ { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
-	{ { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
+	{  3, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
+	{  4, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
 
-	{ { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
+	{  0, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
 
-	{ { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
+	{  0, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
-	{ { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
+	{  0, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
 
-	{ { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
+	{  0, { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
 
-	{ { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
+	{  0, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
 
 	// GATTACA
 	// CAT CAT
@@ -279,8 +331,6 @@ const int BUTTONH = 16;
 const int MUTCARD_W = 120;
 const int MUTCARD_H = 40;
 
-ALLEGRO_FONT *font;
-
 class Sprite
 {
 protected:
@@ -293,6 +343,7 @@ protected:
 	bool alive;
 	bool visible;
 
+	ALLEGRO_FONT *font;
 public:
 	bool isAlive() { return alive; }
 	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
@@ -300,7 +351,9 @@ public:
 	virtual void draw(const GraphicsContext &gc) {};
 	virtual void update() {};
 
-	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {}
+	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {
+		font = Engine::getResources()->getFont("builtin_font");
+	}
 	virtual ~Sprite() {}
 };
 
@@ -545,7 +598,7 @@ public:
 	/** ignores stop codons and everything after */
 	static bool match(Peptide aPep, Peptide bPep) {
 		bool stopCodonFound = false;
-		int pos = 0;
+		size_t pos = 0;
 		while (true) {
 			AA a = (pos < aPep.size() ? aPep.at(pos) : AA::STP);
 			AA b = (pos < bPep.size() ? bPep.at(pos) : AA::STP);
@@ -640,7 +693,7 @@ public:
 		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0, 0.5, 0));
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, GREEN, 1.0);
 
-		draw_shaded_textf(font, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, "cursor");
+		draw_shaded_textf(sfont, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, "cursor");
 
 	}
 
@@ -833,7 +886,7 @@ public:
 		al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb_f(0, 0.5, 0));
 		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
 
-		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
+		draw_shaded_textf(sfont, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
 
 		drawLogo (40, 20);
 	}
@@ -905,11 +958,17 @@ private:
 	shared_ptr<MutationCursor> mutationCursor;
 	shared_ptr<Container> menu;
 
+	shared_ptr<Text> drText;
+
 	shared_ptr<Container> popup;
 	ActionFunc popupAction;
+
+	Script::iterator currentScript;
+	Script::iterator currentScriptEnd;
+
 public:
 
-	GameImpl() : currentLevel(9), world() {
+	GameImpl() : currentLevel(0), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -946,6 +1005,9 @@ public:
 		auto img2 = BitmapComp::build(res->getBitmap("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 0, 600, 400).get();
 		img2->setZoom(2.0);
 		add(img2);
+
+		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 130, 10, 300, 100).get();
+		add (drText);
 	}
 
 	void resetLevel() {
@@ -956,7 +1018,7 @@ public:
 	}
 
 	virtual void initGame() override {
-		initLevel();
+		initLevelAndScript();
 	}
 
 	// sanity test at startup. TODO: should be unit test
@@ -978,7 +1040,7 @@ public:
 
 	virtual void init() override {
 		test();
-		font = al_create_builtin_font(); // TODO fragile initialization of global... Wrap font in a Singleton...
+//		font = al_create_builtin_font(); // TODO fragile initialization of global... Wrap font in a Singleton...
 	}
 
 	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
@@ -1050,7 +1112,7 @@ public:
 			}
 			else {
 				showMessage("You completed the level",
-						[=] () { initLevel(); } );
+						[=] () { initLevelAndScript(); } );
 			}
 		}
 	}
@@ -1074,6 +1136,42 @@ public:
 		}
 	}
 
+	void initLevelAndScript() {
+		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
+		LevelInfo *lev = &levelInfo[currentLevel];
+
+		currentScript = scripts[lev->scriptId].begin();
+		currentScriptEnd = scripts[lev->scriptId].end();
+
+		initLevel();
+		nextScriptStep();
+	}
+
+	void setDoctorText(const string &text) {
+		drText->setText(text);
+		drText->startTypewriter(Text::LETTER_BY_LETTER, 2);
+		drText->onAnimationComplete([=] () {
+			add (Timer::build(100, [=]() {
+				nextScriptStep();
+			}).get());
+		});
+	}
+
+	void nextScriptStep() {
+		if (currentScript != currentScriptEnd) {
+			// execute step
+			switch (currentScript->cmd) {
+			case Cmd::SAY:
+				setDoctorText (currentScript->text);
+
+				break;
+			}
+
+			// advance pointer
+			currentScript++;
+		}
+	}
+
 	void initLevel() {
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
@@ -1087,6 +1185,8 @@ public:
 
 		currentMutationCards = lev->mutationCards;
 		initMutationCards(currentMutationCards);
+
+		drText->setText("");
 	}
 
 	int getOligoSize() {
