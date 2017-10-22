@@ -120,7 +120,7 @@ Script scripts[NUM_SCRIPTS] = {
 		// 1
 		{ Cmd::SAY, "Ok, let's have a look at our patient." },
 		{ Cmd::SAY, "Ah yes, I see. The patient needs an antibiotic,\nadministered directly in the cells.\n" },
-		{ Cmd::SAY, "With a targeted gene mutation,\nthe patient will produce the antibiotic.\n"
+		{ Cmd::SAY, "With a targeted gene mutation,\nthe patient will produce the antibiotic by itself.\n"
 				"We'll use our silly mutation weapon here to mutate the patient.\n"
 				"Don't worry, this won't hurt a bit.\nI mean, this probably won't hurt.\n" },
 		{ Cmd::BIGEYES, "" },
@@ -135,17 +135,22 @@ Script scripts[NUM_SCRIPTS] = {
 				"We just need one mutation.\n"
 				"Activate the mutation card and move it over to the right spot\n"
 				"And press enter to apply it" }
-
 	}, { // 2
 		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "A transition changes a A into a G, and a C into a T.\n"
-					"Look at the symbol on the card to remember" },
-	}, {
-		// 3
+		{ Cmd::SAY, "Let's try a different amino acid.\n"
+					"Glutamate, always goes nice with chinese food!\n" },
+		{ Cmd::SAY,	"A three-letter genetic code is also called a codon.\n"
+					"The genetic code is redundant.\n"
+					"Several possible codons produce the same amino acid."},
+		{ Cmd::SAY, "For example, Glutamate corresponds to the codons GAG or GAA.\n"
+					"That's why there are two rows of symbols on the Glutamate card.\n"
+					"Move the mutation card over to apply the mutation."},
+	}, { // 3
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "A transversion is a different kind of mutation than a transition.\n"
-					"It mutates an A into a C.\n"
-					"Look at the symbol on the card to remember" },
+					"A transition changes A into G, and a T into C.\n"
+					"A transversion changes A into a C, and a T into G.\n"
+					"If you look closely, the symbol on the mutation card shows this." },
 	}, {
 		// 4
 		{ Cmd::ACTIVATE_ALL, "" },
@@ -256,15 +261,13 @@ struct LevelInfo {
 	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 11;
+const int NUM_LEVELS = 10;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{  1, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
+	{  2, { AA::Glu, AA::Glu, AA::Glu }, "GAGGACGAA", { MutationId::TRANSVERSION } },
 
-	{  2, { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
-	{  3, { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
-
-	{  0, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+	{  3, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
 	{  4, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
 	{  5, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
@@ -1675,6 +1678,10 @@ public:
 		initMutationCards(currentMutationCards);
 
 		currentDNA.applyMutation(pos, mutationId);
+
+		patient->setState(2);
+		auto t1 = Timer::build(100, [=](){ patient->setState(0); }).get();
+		add(t1);
 	}
 
 	virtual void update() override {
