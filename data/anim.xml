@@ -6,14 +6,43 @@
 	</anim>
 
 	<anim id='dance' hotx = '0' hoty = '0'>
-		<frame rle='BunBack0' time='200'/>
-		<frame rle='BunBack1' time='200'/>
-		<frame rle='BunBack2' time='200'/>
-		<frame rle='BunBack3' time='200'/>
-
 		<frame rle='BunFront1' time='200'/>
 		<frame rle='BunFront2' time='200'/>
+		<frame rle='BunFront4' time='200'/>
 		<frame rle='BunFront3' time='200'/>
+		<frame rle='BunFront1' time='200'/>
+		<frame rle='BunFront2' time='200'/>
+		<frame rle='BunFront4' time='200'/>
+		<frame rle='BunFront3' time='200'/>
+		<frame rle='BunFront1' time='200'/>
+		<frame rle='BunFront2' time='200'/>
+		<frame rle='BunFront4' time='200'/>
+		<frame rle='BunFront3' time='200'/>
+		<frame rle='BunBack1' time='200'/>
+		<frame rle='BunBack2' time='200'/>
+		<frame rle='BunBack1' time='200'/>
+		<frame rle='BunBack3' time='200'/>
+		<frame rle='BunFront1' time='200'/>
+		<frame rle='BunFront2' time='200'/>
+		<frame rle='BunFront4' time='200'/>
+		<frame rle='BunFront3' time='200'/>
+		<frame rle='BunBack1' time='200'/>
+		<frame rle='BunBack2' time='200'/>
+		<frame rle='BunBack1' time='200'/>
+		<frame rle='BunBack3' time='200'/>
+		<frame rle='BunFront1' time='200'/>
+		<frame rle='BunSide1' time='200'/>
+		<frame rle='BunSide3' time='200'/>
+		<frame rle='BunBack1' time='200'/>	
+		<frame rle='BunSide4' time='200'/>
+		<frame rle='BunSide2' time='200'/>
+		<frame rle='BunFront4' time='200'/>
+		<frame rle='BunSide1' time='200'/>
+		<frame rle='BunSide3' time='200'/>
+		<frame rle='BunBack1' time='200'/>	
+		<frame rle='BunSide4' time='200'/>
+		<frame rle='BunSide2' time='200'/>
+		<frame rle='BunFront1' time='200'/>
 	</anim>
 
 </gamedata>
