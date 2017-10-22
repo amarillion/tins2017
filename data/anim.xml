@@ -2,8 +2,8 @@
 
 	<anim id='Bigbunnybed' hotx = '0' hoty = '0'>
 		<state>
-			<frame rle='Bigbunnybed' time='200'/>
-			<frame rle='Bigbunnybed2' time='200'/>
+			<frame rle='Bigbunnybed' time='600'/>
+			<frame rle='Bigbunnybed2' time='600'/>
 		</state>
 		<state>
 			<frame rle='Bigbunnybed3' time='0'/>

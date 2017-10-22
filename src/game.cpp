@@ -49,7 +49,7 @@ AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
 	{ 'L', "Leu", "Leucine",       {"CTT", "CTC", "CTA", "CTG", "TTA", "TTG"} },
 	{ 'K', "Lys", "Lysine",        {"AAA", "AAG"} },
 	{ 'M', "Met", "Methionine",    {"ATG"} },
-	{ 'F', "Phe", "Phenylalanine", {"TTT", "TTC"} },
+	{ 'F', "Phe", "Phenylalan.", {"TTT", "TTC"} },
 	{ 'P', "Pro", "Proline",       {"CCT", "CCC", "CCA", "CCG"} },
 	{ 'S', "Ser", "Serine",        {"TCT", "TCC", "TCA", "TCG", "AGT", "AGC"} },
 	{ 'T', "Thr", "Threonine",     {"ACT", "ACC", "ACA", "ACG"} },
@@ -111,7 +111,7 @@ struct Statement {
 
 using Script = vector<Statement>;
 
-const int NUM_SCRIPTS = 6;
+const int NUM_SCRIPTS = 9;
 Script scripts[NUM_SCRIPTS] = {
 	{
 		// 0: effectively no script
@@ -162,7 +162,25 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "Sometimes a mutation deletes a base.\n"
 					"This causes a frame shift.\n"
-					"With lots of changes downstream." },
+					"All amino acids that are downstream\n"
+					"can be affected." },
+	}, {
+		// 6
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "An insertion can undo the effect of a deletion.\n"
+			},
+	}, {
+		// 7
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "The reverse complement changes the direction of translation.\n"
+					"The entire sequence is rotated by 180 degrees.\n"
+			},
+	}, {
+		// 8
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "A stop codon halts the translation.\n"
+					"They are TAA, TGA or TAG.\n"
+			},
 	}
 };
 
@@ -272,15 +290,15 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 	{  4, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
 	{  5, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
 
-	{  0, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
+	{  6, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
 
-	{  0, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
+	{  7, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
 	{  0, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
 
 	{  0, { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
 
-	{  0, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
+	{  8, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
 
 	// GATTACA
 	// CAT CAT
@@ -385,8 +403,8 @@ class CodonTableView : public IComponent {
 
 		al_draw_rectangle(x1 + 1, y1 + 1, getw() - 1, geth() - 1, WHITE, 1.0);
 
-		const int COL_WIDTH = 80;
-		const int OUTER_ROW_HEIGHT = 64;
+		const int COL_WIDTH = getw() / 4;
+		const int OUTER_ROW_HEIGHT = geth() / 4;
 		const int INNER_ROW_HEIGHT = 16;
 
 		for (int i = 0; i < NUM_NUCLEOTIDES; ++i) {
@@ -399,7 +417,7 @@ class CodonTableView : public IComponent {
 					AA aaIdx = codonTable.getCodon(i, j, k);
 					const AminoAcidInfo *aai = &aminoAcidInfo[static_cast<int>(aaIdx)];
 					if (aai) {
-						al_draw_text(sfont, GREEN, xco, yco, ALLEGRO_ALIGN_LEFT, aai->threeLetterCode.c_str());
+						draw_shaded_text(sfont, BLACK, GREEN, xco, yco, ALLEGRO_ALIGN_LEFT, aai->threeLetterCode.c_str());
 					}
 
 				}
@@ -1264,8 +1282,6 @@ class TextBalloon : public IComponent {
 class GameImpl : public Game {
 private:
 	int currentLevel;
-	shared_ptr<CodonTableView> codonTableView;
-
 public:
 	SpriteGroup world;
 private:
@@ -1293,13 +1309,13 @@ private:
 
 	Script::iterator currentScript;
 	Script::iterator currentScriptEnd;
+
+	bool uiEnabled = true;
 public:
 
+	bool isUIEnabled() { return uiEnabled; }
+
 	GameImpl() : currentLevel(0), world() {
-		codonTableView = make_shared<CodonTableView>();
-		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
-		codonTableView->setVisible(false); // start hidden
-		add (codonTableView);
 
 		menu = make_shared<Container>();
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
@@ -1452,9 +1468,15 @@ public:
 		}
 	}
 
+	void setUIEnabled(bool value) {
+		uiEnabled = value;
+	}
+
 	void generateRibosome() {
 		auto ribo = make_shared<Ribosome>(this);
 		ribo->nextAnimation();
+
+		checkWinCondition();
 		world.push_back(ribo);
 	}
 
@@ -1535,19 +1557,35 @@ public:
 		validateGeneSprites();
 	}
 
+	void advanceLevel() {
+		currentLevel++;
+
+		if (currentLevel >= NUM_LEVELS) {
+			showMessage("You finished all levels, you won the game!",
+					[=] () { pushMsg(Engine::E_QUIT); } );
+
+		}
+		else {
+			showMessage("Level Complete! Press any key...",
+					[=] () { initLevelAndScript(); } );
+		}
+	}
+
 	void checkWinCondition() {
 		if (DNAModel::match (currentPeptide.getValue(), targetPeptide.getValue())) {
-			currentLevel++;
 
-			if (currentLevel >= NUM_LEVELS) {
-				showMessage("You finished all levels, you won the game!",
-						[=] () { pushMsg(Engine::E_QUIT); } );
+			// immediately block UI to prevent modifying the sequence any further
+			setUIEnabled(false);
 
-			}
-			else {
-				showMessage("You completed the level",
-						[=] () { initLevelAndScript(); } );
-			}
+			// we have to wait for the Ribosome to finish. Ideally we have a signal that it's ready...
+			auto t1 = Timer::build(200, [=] () {
+
+				setUIEnabled(true);
+				advanceLevel();
+
+			} ).get();
+
+			add(t1);
 		}
 	}
 
@@ -1668,7 +1706,6 @@ public:
 	}
 
 	void applyMutation (int pos, MutationId mutationId) {
-
 		// first remove mutation card, before triggering level check etc...
 		auto it = std::find(currentMutationCards.begin(), currentMutationCards.end(), mutationId);
 		if (it != currentMutationCards.end()) {
@@ -1700,6 +1737,21 @@ public:
 		Container::draw(gc);
 	}
 
+	void showCodonTable() {
+
+		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_BOTTOM, 100, 100, 100, 100).get();
+		popup->add (make_shared<ClearScreen>(WHITE));
+
+		auto codonTableView = make_shared<CodonTableView>();
+		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
+		popup->add (codonTableView);
+
+		popupAction = [=](){ pauseComponents(true); };
+		add (popup);
+
+		pauseComponents(false);
+	}
+
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
 
 		if (popup) {
@@ -1715,8 +1767,7 @@ public:
 			if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
 				switch (event.keyboard.keycode) {
 					case ALLEGRO_KEY_F2:
-						//TODO: use popup as well...
-						codonTableView->setVisible(!codonTableView->isVisible());
+						showCodonTable();
 						break;
 					case ALLEGRO_KEY_SPACE:
 						pauseScreen();
@@ -1751,8 +1802,13 @@ void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 			newpos = min(pos+1, parent->getOligoSize() - 1);
 			break;
 		case ALLEGRO_KEY_ENTER:
-			parent->applyMutation(pos, mutation);
-			kill();
+			if (!parent->isUIEnabled()) {
+				//TODO: error buzzer sample
+			}
+			else {
+				parent->applyMutation(pos, mutation);
+				kill();
+			}
 			break;
 		}
 	}
@@ -1781,8 +1837,6 @@ void Ribosome::nextAnimation() {
 	if (aaPos >= parent->getCurrentPeptideSize()) {
 		// fall down
 		parent->world.move(shared_from_this(), x, 600, 50);
-		auto t1 = Timer::build(80, [=] () { parent->checkWinCondition(); } ).get();
-		parent->add(t1);
 	}
 	else {
 		int xco = aaPos * AA_STEPSIZE + (AA_SPACING / 2) + SECTION_X;
