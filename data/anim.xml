@@ -1,8 +1,17 @@
 <gamedata>"
 
 	<anim id='Bigbunnybed' hotx = '0' hoty = '0'>
-		<frame rle='Bigbunnybed' time='200'/>
-		<frame rle='Bigbunnybed2' time='200'/>
+		<state>
+			<frame rle='Bigbunnybed' time='200'/>
+			<frame rle='Bigbunnybed2' time='200'/>
+		</state>
+		<state>
+			<frame rle='Bigbunnybed3' time='0'/>
+		</state>
+		<state>
+			<frame rle='Bigbunnybed4' time='200'/>
+			<frame rle='Bigbunnybed5' time='200'/>
+		</state>
 	</anim>
 
 	<anim id='dance' hotx = '0' hoty = '0'>

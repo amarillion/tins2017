@@ -60,7 +60,10 @@ AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
 };
 
 enum class MutationId {
-	TRANSVERSION, TRANSITION, COMPLEMENT, REVERSE_COMPLEMENT, INSERTION_A, INSERTION_C, INSERTION_T, INSERTION_G, DELETION,
+	TRANSVERSION, // transversion:  G<->T   A<->C
+	TRANSITION, // transition:    G<->A   T<->C
+	COMPLEMENT, // complement:    G<->C   A<->T
+	REVERSE_COMPLEMENT, INSERTION_A, INSERTION_C, INSERTION_T, INSERTION_G, DELETION,
 };
 
 struct MutationInfo {
@@ -99,7 +102,7 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 using Peptide = vector<AA>;
 using OligoNt = string;
 
-enum class Cmd { SAY, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION };
+enum class Cmd { SAY, BIGEYES, NORMALEYES, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION };
 
 struct Statement {
 	Cmd cmd;
@@ -108,7 +111,7 @@ struct Statement {
 
 using Script = vector<Statement>;
 
-const int NUM_SCRIPTS = 5;
+const int NUM_SCRIPTS = 6;
 Script scripts[NUM_SCRIPTS] = {
 	{
 		// 0: effectively no script
@@ -116,32 +119,41 @@ Script scripts[NUM_SCRIPTS] = {
 	}, {
 		// 1
 		{ Cmd::SAY, "Ok, let's have a look at our patient." },
-		{ Cmd::SAY, "Ah yes, I see. The patient needs antibiotics,\nadministered directly in the cells.\n"
-					"We need the antibiotic to be a peptide,\nthat is, a short chain of amino acids." },
-		{ Cmd::SAY, "With a targeted gene mutation,\nthe patients own cells will generate the peptide.\n"
+		{ Cmd::SAY, "Ah yes, I see. The patient needs an antibiotic,\nadministered directly in the cells.\n" },
+		{ Cmd::SAY, "With a targeted gene mutation,\nthe patient will produce the antibiotic.\n"
 				"We'll use our silly mutation weapon here to mutate the patient.\n"
 				"Don't worry, this won't hurt a bit.\nI mean, this probably won't hurt.\n" },
+		{ Cmd::BIGEYES, "" },
 		{ Cmd::SAY, "OK, this might hurt a little." },
-		{ Cmd::SAY, "This is the peptide we need." },
-		{ Cmd::SAY, "This gene looks almost right. We just need one mutation.\n"
-				"A transversion is all we need.\n"
-				"A transversion mutates an A into a C, or a G into a T.\nOr vice versa.\n"
-				"The symbol on the transversion card indicates this."
-		},
-	}, {
-		// 2
+		{ Cmd::NORMALEYES, "" },
+		{ Cmd::ACTIVATE_TARGET, "" },
+		{ Cmd::SAY, "The antibiotic we need is just a single amino acid: Tryptophan.\n"
+					"To produce it, we need a three-letter genetic code of TGT.\n"
+					"Look at the symbols on the tryptophan card,\nto see which genetic code it needs." },
+		{ Cmd::SAY, "We need TGT to produce Tryptophan, This gene looks almost right.\n"
+				"It is TGG, producing Cysteine.\n"
+				"We just need one mutation.\n"
+				"Activate the mutation card and move it over to the right spot\n"
+				"And press enter to apply it" }
+
+	}, { // 2
 		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "A transversion is a different kind of mutation than a transition.\n"
-					"It mutates an A into a C (not a T).\n"
+		{ Cmd::SAY, "A transition changes a A into a G, and a C into a T.\n"
 					"Look at the symbol on the card to remember" },
 	}, {
 		// 3
+		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "A transversion is a different kind of mutation than a transition.\n"
+					"It mutates an A into a C.\n"
+					"Look at the symbol on the card to remember" },
+	}, {
+		// 4
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "The complement of a nucleotide.\n"
 					"Is the one it pairs with.\n"
 					"G pairs with C, A pairs with T." },
 	}, {
-		// 4
+		// 5
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "Sometimes a mutation deletes a base.\n"
 					"This causes a frame shift.\n"
@@ -244,16 +256,18 @@ struct LevelInfo {
 	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 10;
+const int NUM_LEVELS = 11;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
-	{  1, { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
-	{  2, { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
+	{  1, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
+
+	{  2, { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
+	{  3, { AA::Ala, AA::Met }, "GCTACG", { MutationId::TRANSITION } },
 
 	{  0, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
-	{  3, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
-	{  4, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
+	{  4, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
+	{  5, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
 
 	{  0, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
 
@@ -277,9 +291,6 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 	//TODO: // introducing stop codon
 
-	// transition:    G<->A   T<->C
-	// complement:    G<->C   A<->T
-	// transversion:  G<->T   A<->C
 };
 
 NT getNucleotideIndex(char c) {
@@ -408,9 +419,11 @@ const int NT_HEIGHT = 80;
 const int NT_SPACING = 8;
 const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 
+const int SECTION_X = 80;
 const int TARGET_PEPT_Y = 180;
 const int CURRENT_PEPT_Y = 280;
 const int GENE_Y = 380;
+const int RIBOSOME_Y = GENE_Y - 50;
 const int CURSOR_Y = 460;
 
 const int BUTTONW = 120;
@@ -422,6 +435,8 @@ const int MUTCARD_H = 40;
 class Sprite
 {
 protected:
+	ALLEGRO_BITMAP *sprite;
+
 	float x; // cell-x
 	float y;
 
@@ -436,15 +451,22 @@ public:
 	bool isAlive() { return alive; }
 	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
 	bool isVisible() { return visible; }
-	virtual void draw(const GraphicsContext &gc) {};
+
+	virtual void draw(const GraphicsContext &gc) {
+		if (sprite) {
+			al_draw_bitmap(sprite, x + gc.xofst, y + gc.yofst, 0);
+		}
+	};
+
 	virtual void update() {};
 	float getx() { return x; }
 	float gety() { return y; }
 	void setxy (int _x, int _y) { x = _x; y = _y; }
-	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {
+	Sprite() : sprite(nullptr), x(0), y(0), w(16), h(16), alive(true), visible(true) {
 		font = Engine::getResources()->getFont("builtin_font");
 	}
 	virtual ~Sprite() {}
+	virtual void handleAnimationComplete() {};
 };
 
 class GameImpl;
@@ -460,7 +482,6 @@ private:
 	bool isAnimating = false;
 	const int MAX_COUNTER = 100;
 	int counter = 0;
-	ALLEGRO_BITMAP *sprite;
 public:
 	NucleotideSprite(GameImpl *parent, double x, double y, char code, int pos) : parent(parent), code(code), pos(pos) {
 		this->x = x;
@@ -512,7 +533,7 @@ public:
 
 void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
 	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
-	al_draw_rectangle(x1, y1, x2, y2, outer, w);
+	al_draw_rectangle(x1 + 1, y1 + 1, x2, y2, outer, w);
 }
 
 class CardRenderer {
@@ -523,6 +544,25 @@ class CardRenderer {
 	CardRenderer() {
 		res = Engine::getResources();
 		font = res->getFont("builtin_font");
+	}
+
+	void drawRibosome() {
+		int w = AA_WIDTH + 20;
+		int h = 80;
+
+		ALLEGRO_BITMAP *result = al_create_bitmap (w, h);
+		al_set_target_bitmap(result);
+		al_clear_to_color(MAGIC_PINK);
+
+		al_draw_filled_rounded_rectangle(0, 0, w, h, 15, 15, GREY);
+
+		al_set_blender(ALLEGRO_ADD, ALLEGRO_ONE, ALLEGRO_ZERO);
+		al_draw_filled_rectangle(10, 50, w-10, h-10, MAGIC_PINK);
+		al_set_blender (ALLEGRO_ADD, ALLEGRO_ONE, ALLEGRO_INVERSE_ALPHA);
+
+		draw_shaded_text(font, WHITE, GREY, 5, 10, ALLEGRO_ALIGN_LEFT, "RIBOSOME");
+
+		res->putBitmap("RIBOSOME", result);
 	}
 
 	ALLEGRO_BITMAP *drawNucleotideCard(int idx) {
@@ -538,6 +578,7 @@ class CardRenderer {
 		drawOutlinedRect(0, 0, NT_WIDTH, NT_HEIGHT, mainColor, shadeColor, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, 5, 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
+
 		return result;
 	}
 
@@ -550,12 +591,14 @@ class CardRenderer {
 			NucleotideInfo *info = &nucleotideInfo[i];
 			info->card = bmp;
 		}
+
 	}
 
 public:
 	static void drawCards() {
 		CardRenderer renderer;
 		renderer.drawNucleotideCards();
+		renderer.drawRibosome();
 	}
 
 };
@@ -587,6 +630,7 @@ public:
 		currentStep++;
 
 		if (currentStep >= totalSteps) {
+			target->handleAnimationComplete();
 			kill();
 			target = nullptr;
 		}
@@ -622,7 +666,7 @@ public:
 		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0.5, 0, 0));
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
 
-		draw_shaded_textf(font, WHITE, GREY, x1 + AA_PADDING, y1 + AA_PADDING, ALLEGRO_ALIGN_LEFT, info->threeLetterCode.c_str());
+		draw_shaded_textf(font, WHITE, GREY, x1 + AA_PADDING, y1 + AA_PADDING, ALLEGRO_ALIGN_LEFT, info->fullName.c_str());
 
 		// draw the DNA target sequences...
 
@@ -931,10 +975,8 @@ public:
 	}
 
 	void setPos(int newpos) {
-		if (pos != newpos) {
-			pos = newpos;
-			setx(NT_STEPSIZE * pos);
-		}
+		pos = newpos;
+		setx(SECTION_X + NT_STEPSIZE * pos);
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override;
@@ -1099,6 +1141,30 @@ public:
 	}
 };
 
+class Ribosome : public Sprite, public enable_shared_from_this<Ribosome> {
+private:
+	GameImpl *parent;
+	int aaPos = -1;
+	bool animating = false;
+public:
+	Ribosome(GameImpl *parent) : parent(parent) {
+		sprite = Engine::getResources()->getBitmap("RIBOSOME");
+		y = RIBOSOME_Y;
+		x = -100;
+	}
+
+	virtual void update() override {
+
+	}
+
+	virtual void handleAnimationComplete() override {
+		nextAnimation();
+	}
+
+	void nextAnimation();
+
+};
+
 class MutationCard : public Widget {
 private:
 	GameImpl *parent;
@@ -1218,6 +1284,8 @@ private:
 	shared_ptr<Text> drText;
 
 	shared_ptr<Container> popup;
+	shared_ptr<AnimComponent> patient;
+
 	ActionFunc popupAction;
 
 	Script::iterator currentScript;
@@ -1255,13 +1323,13 @@ public:
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
-			peptideToSprites(currentPeptide, currentPeptideGroup, 10, CURRENT_PEPT_Y);
-			auto t1 = Timer::build(100, [=] () { checkWinCondition(); } ).get();
-			add(t1);
+
+			generateRibosome();
+			currentPeptideGroup.killAll();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
-			peptideToSprites(targetPeptide, targetPeptideGroup, 10, TARGET_PEPT_Y);
+			peptideToSprites(targetPeptide, targetPeptideGroup, SECTION_X, TARGET_PEPT_Y);
 		});
 
 		auto button = Button::build([=](){ resetLevel(); }, "RESET")
@@ -1272,13 +1340,13 @@ public:
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
 		add(img1);
 
-		auto img2 = AnimComponent::build(res->getAnim("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 20, 300, 200).get();
-		add(img2);
+		patient = AnimComponent::build(res->getAnim("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 20, 300, 200).get();
+		add(patient);
 
 		auto balloon = make_shared<TextBalloon>();
-		balloon->setLayout(Layout::LEFT_TOP_RIGHT_H, 135, 5, 300, 120);
+		balloon->setLayout(Layout::LEFT_TOP_RIGHT_H, 135, 5, 250, 120);
 		add (balloon);
-		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 140, 15, 305, 110).get();
+		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 140, 15, 255, 110).get();
 		add(drText);
 
 	}
@@ -1316,6 +1384,36 @@ public:
 		CardRenderer::drawCards();
 	}
 
+	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, SpriteGroup &group, int ax, int ay, int pos) {
+
+		int xco = ax;
+		int yco = ay;
+		xco += AA_SPACING / 2;
+		xco += pos * AA_STEPSIZE;
+
+		AA aaIdx = pep.at(pos);
+
+		auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
+		world.push_front(aaSprite);
+		group.push_back(aaSprite);
+
+		return aaSprite;
+	}
+
+	void currentPeptideToSprite(int pos) {
+		int xco = SECTION_X;
+		int yco = CURRENT_PEPT_Y;
+		xco += AA_SPACING / 2;
+		xco += pos * AA_STEPSIZE;
+
+		auto aa = peptideToSprite(currentPeptide, currentPeptideGroup, SECTION_X, RIBOSOME_Y, pos);
+		world.move(aa, xco, yco, 40);
+	}
+
+	int getCurrentPeptideSize() {
+		return currentPeptide.size();
+	}
+
 	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
 
 		group.killAll();
@@ -1326,15 +1424,8 @@ public:
 		xco += AA_SPACING / 2;
 
 		for (size_t i = 0; i < pep.size(); ++i) {
-			AA aaIdx = pep.at(i);
-
-			auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
-			world.push_back(aaSprite);
-			group.push_back(aaSprite);
-
-			xco += AA_STEPSIZE;
+			peptideToSprite(pep, group, ax, ay, i);
 		}
-
 	}
 
 	void createMutationCursor(MutationId mutationId) {
@@ -1358,8 +1449,14 @@ public:
 		}
 	}
 
+	void generateRibosome() {
+		auto ribo = make_shared<Ribosome>(this);
+		ribo->nextAnimation();
+		world.push_back(ribo);
+	}
+
 	void generateGeneSprite(int pos) {
-		int xco = 10 + NT_STEPSIZE * pos;
+		int xco = SECTION_X + NT_STEPSIZE * pos;
 		int yco = GENE_Y;
 
 		if ((int)geneGroup.size() <= pos) {
@@ -1471,6 +1568,7 @@ public:
 
 	void pauseComponents(bool val) {
 		drText->setAwake(val);
+		patient->setAwake(val);
 	}
 
 	void showMessage(const char *text, ActionFunc actionFunc) {
@@ -1527,6 +1625,12 @@ public:
 				case Cmd::SAY:
 					setDoctorText (currentScript->text);
 					done = true;
+					break;
+				case Cmd::BIGEYES:
+					patient->setState(1);
+					break;
+				case Cmd::NORMALEYES:
+					patient->setState(0);
 					break;
 				default:
 					break;
@@ -1629,7 +1733,6 @@ void MutationCard::MsgLPress(const Point &p) {
 	parent->createMutationCursor(mutationId);
 }
 
-
 void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 	int newpos = pos;
 	if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
@@ -1638,7 +1741,7 @@ void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 			newpos = max (0, pos-1);
 			break;
 		case ALLEGRO_KEY_RIGHT:
-			newpos = min(pos+1, parent->getOligoSize());
+			newpos = min(pos+1, parent->getOligoSize() - 1);
 			break;
 		case ALLEGRO_KEY_ENTER:
 			parent->applyMutation(pos, mutation);
@@ -1650,8 +1753,33 @@ void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 };
 
 void NucleotideSprite::moveToPos(int _pos) {
-	int xco = 10 + NT_STEPSIZE * _pos;
+	int xco = SECTION_X + NT_STEPSIZE * _pos;
 	int yco = GENE_Y;
 	pos = _pos;
 	parent->world.move(shared_from_this(), xco, yco, 50);
+}
+
+void Ribosome::nextAnimation() {
+	if (aaPos >= parent->getCurrentPeptideSize()) {
+		kill();
+		return;
+	}
+	else if (aaPos >= 0)
+	{
+		parent->currentPeptideToSprite(aaPos);
+	}
+
+	aaPos++;
+
+	if (aaPos >= parent->getCurrentPeptideSize()) {
+		// fall down
+		parent->world.move(shared_from_this(), x, 600, 50);
+		auto t1 = Timer::build(80, [=] () { parent->checkWinCondition(); } ).get();
+		parent->add(t1);
+	}
+	else {
+		int xco = aaPos * AA_STEPSIZE + (AA_SPACING / 2) + SECTION_X;
+		int yco = RIBOSOME_Y;
+		parent->world.move(shared_from_this(), xco, yco, 50);
+	}
 }

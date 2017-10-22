@@ -131,6 +131,7 @@ public:
 	AnimComponent (Anim *anim);
 	virtual void draw(const GraphicsContext &gc) override;
 	virtual std::string const className() const override { return "AnimComponent"; }
+	void setState(int val) { state = val; }
 };
 
 #endif /* DRAWSTRATEGY_H_ */
