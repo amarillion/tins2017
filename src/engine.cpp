@@ -14,6 +14,19 @@ void Engine::init()
 {
 	resources = new Resources();
 
+	if (!(
+		resources->addFiles("data/*.ttf") &&
+		resources->addFiles("data/*.png") &&
+		resources->addFiles("data/*.xml") //&&
+//			resources->addFiles("data/*.ogg") &&
+//		resources->addFiles("data/*.xm") &&
+//		resources->addFiles("data/*.wav")
+		))
+	{
+		allegro_message ("Error while loading resources!\n", resources->getErrorMsg());
+		assert(false);
+	}
+
 	resources->addDir("data");
 
 	font = resources->getFont("DejaVuSans_16");

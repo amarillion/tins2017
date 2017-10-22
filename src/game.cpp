@@ -940,6 +940,15 @@ public:
 	virtual void MsgLPress(const Point &p) override;
 };
 
+class AnyKeyAction : public IComponent {
+private:
+	ActionFunc onActivateAction;
+public:
+	void onActivate(ActionFunc actionFunc) {
+		onActivateAction = actionFunc;
+	};
+};
+
 class GameImpl : public Game {
 private:
 	int currentLevel;
@@ -998,12 +1007,12 @@ public:
 		add(button);
 
 		Resources *res = Engine::getResources();
-		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 0, 130, 130).get();
+		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
 		img1->setZoom(2.0);
 		add(img1);
 
-		auto img2 = BitmapComp::build(res->getBitmap("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 0, 600, 400).get();
-		img2->setZoom(2.0);
+		auto img2 = AnimComponent::build(res->getAnim("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 20, 300, 200).get();
+//		img2->setZoom(2.0);
 		add(img2);
 
 		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 130, 10, 300, 100).get();
@@ -1117,6 +1126,22 @@ public:
 		}
 	}
 
+	void pauseScreen() {
+		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
+		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
+
+		auto t1 = Text::build(WHITE, ALLEGRO_ALIGN_CENTER, string("PAUSE")).layout (Layout::LEFT_TOP_RIGHT_H, 0, 50, 0, 100).get();
+		popup->add (t1);
+
+		Resources *res = Engine::getResources();
+		auto img2 = AnimComponent::build(res->getAnim("dance")).layout(Layout::CENTER_TOP_W_H, 0, 100, 64, 64).get();
+//		img2->setZoom(2.0);
+		popup->add(img2);
+
+		popupAction = [](){}; // do nothing
+		add (popup);
+	}
+
 	void showMessage(const char *text, ActionFunc actionFunc) {
 
 		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
@@ -1218,9 +1243,8 @@ public:
 			al_draw_text(Engine::getFont(), LIGHT_BLUE, 0, 0, ALLEGRO_ALIGN_LEFT, "DEBUG ON");
 		}
 
-		Container::draw(gc);
-
 		world.draw(gc);
+		Container::draw(gc);
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
@@ -1238,7 +1262,11 @@ public:
 			if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
 				switch (event.keyboard.keycode) {
 					case ALLEGRO_KEY_F2:
+						//TODO: use popup as well...
 						codonTableView->setVisible(!codonTableView->isVisible());
+						break;
+					case ALLEGRO_KEY_SPACE:
+						pauseScreen();
 						break;
 				}
 			}
