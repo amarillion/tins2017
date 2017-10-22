@@ -19,6 +19,8 @@
 #include "text.h"
 #include <sstream>
 
+#include "mainloop.h"
+
 using namespace std;
 
 enum class AA {
@@ -122,8 +124,8 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::SAY, "This is the peptide we need." },
 		{ Cmd::SAY, "This gene looks almost right. We just need one mutation.\n"
 				"A transversion is all we need.\n"
-				"A transversion mutates an A into a C, or a G into a T. Or vice versa.\n"
-				"The symbols on the transversion can help you remember this."
+				"A transversion mutates an A into a C, or a G into a T.\nOr vice versa.\n"
+				"The symbol on the transversion card indicates this."
 		},
 	}, {
 		// 2
@@ -144,6 +146,92 @@ Script scripts[NUM_SCRIPTS] = {
 					"This causes a frame shift.\n"
 					"With lots of changes downstream." },
 	}
+};
+
+class DissolveEffect {
+
+private:
+	ALLEGRO_SHADER *shader;
+
+public:
+	DissolveEffect()
+	{
+		shader = al_create_shader(ALLEGRO_SHADER_AUTO);
+		assert(shader);
+/*
+		const char *checker_vertex_shader_src =
+			"attribute vec4 al_pos;"
+			"uniform mat4 al_projview_matrix;"
+			"void main()"
+			"{"
+			"	gl_Position = al_projview_matrix * al_pos;"
+			"}";
+*/
+		const char *checker_pixel_shader_src =
+
+			"#version 130\n"
+			"uniform float uTime;"
+			"uniform sampler2D al_tex;\n"
+			"uniform bool al_use_tex;\n"
+			"varying vec4 varying_color;\n"
+			"varying vec2 varying_texcoord;\n"
+
+			"void main(void)"
+			"{"
+			"	vec2 st = gl_FragCoord.xy;"
+			"	vec3 color = vec3(0.0);"
+			"	float checkSize = 3.0;"
+			"	st /= checkSize;"
+			"	float step = 20.0;"
+			"	float cellNo = mod(floor(st.x), 8.0) + 8.0 * mod(floor(st.y), 8.0);"
+			"	float fmodResult = mod (floor(cellNo / step) + mod(cellNo, step) * step, 64.0);"
+			"	if (fmodResult / 64.0 < uTime) {"
+			"		discard;"
+			"	}"
+			"	if ( al_use_tex )\n"
+			"		gl_FragColor = varying_color * texture2D( al_tex , varying_texcoord);\n"
+			"	else\n"
+			"		gl_FragColor = varying_color;\n"
+			"}";
+
+		bool ok;
+
+		ok = al_attach_shader_source(shader, ALLEGRO_PIXEL_SHADER, checker_pixel_shader_src);
+		//TODO: assert with message format...
+		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+
+		ok = al_attach_shader_source(shader, ALLEGRO_VERTEX_SHADER,
+				al_get_default_shader_source(ALLEGRO_SHADER_GLSL, ALLEGRO_VERTEX_SHADER));
+
+		//TODO: assert with message format...
+		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+
+		ok = al_build_shader(shader);
+		//TODO: assert with message...
+		if (!ok) printf ("al_build_shader failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+	}
+
+	void withPattern(float time, function<void()> closure)
+	{
+		enable(time);
+		closure();
+		disable();
+	}
+
+	void enable(float time) {
+		al_use_shader(shader);
+		al_set_shader_float("uTime", time);
+	}
+
+
+	void disable() {
+		al_use_shader(NULL);
+	}
+
+	ALLEGRO_SHADER *getShader() { return shader; }
 };
 
 struct LevelInfo {
@@ -333,8 +421,8 @@ const int MUTCARD_H = 40;
 class Sprite
 {
 protected:
-	double x; // cell-x
-	double y;
+	float x; // cell-x
+	float y;
 
 	int w;
 	int h;
@@ -349,21 +437,30 @@ public:
 	bool isVisible() { return visible; }
 	virtual void draw(const GraphicsContext &gc) {};
 	virtual void update() {};
-
+	float getx() { return x; }
+	float gety() { return y; }
+	void setxy (int _x, int _y) { x = _x; y = _y; }
 	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {
 		font = Engine::getResources()->getFont("builtin_font");
 	}
 	virtual ~Sprite() {}
 };
 
-class NucleotideSprite : public Sprite {
-private:
+class GameImpl;
 
+class NucleotideSprite : public Sprite, public enable_shared_from_this<NucleotideSprite> {
+private:
+	GameImpl *parent;
 	NucleotideInfo *info;
 	char code;
+	int pos;
 	NT idx;
+	DissolveEffect dissolve; // TODO - make static but initialize at the right moment...
+	bool isAnimating = false;
+	const int MAX_COUNTER = 100;
+	int counter = 0;
 public:
-	NucleotideSprite(double x, double y, char code) : code(code) {
+	NucleotideSprite(GameImpl *parent, double x, double y, char code, int pos) : parent(parent), code(code), pos(pos) {
 		this->x = x;
 		this->y = y;
 		w = NT_WIDTH;
@@ -372,7 +469,7 @@ public:
 		info = &nucleotideInfo[(int)idx];
 	}
 
-	virtual void draw(const GraphicsContext &gc) {
+	virtual void drawCard(const GraphicsContext &gc) {
 		double x1 = x + gc.xofst;
 		double y1 = y + gc.yofst;
 
@@ -383,7 +480,79 @@ public:
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, mainColor, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
+	}
+
+	virtual void draw(const GraphicsContext &gc) {
+		int msec = (MainLoop::getMainLoop()->getMsecCounter() % 1000);
+		if (isAnimating) {
+			dissolve.withPattern( (float)counter/(float)MAX_COUNTER,
+				[=]() {	drawCard(gc); }
+			);
+		}
+		else {
+			drawCard(gc);
+		}
 	};
+
+	void update() {
+		if (isAnimating) {
+			counter++;
+			if (counter > MAX_COUNTER) {
+				kill();
+				isAnimating = false;
+			}
+		}
+	}
+
+	void startDissolve() {
+		isAnimating = true;
+		counter = 0;
+	}
+
+	void moveToPos(int _pos);
+
+	bool validate(int _pos, char _code) {
+		return (pos == _pos) && (code == _code);
+	}
+};
+
+class MoveAnimator : public Sprite {
+
+	float destX, destY;
+	float srcX, srcY;
+	shared_ptr<Sprite> target;
+	int totalSteps;
+	int currentStep;
+public:
+	MoveAnimator (const shared_ptr<Sprite> &target, float destX, float destY, int steps) :
+		destX(destX), destY(destY), target(target), totalSteps(steps), currentStep(0) {
+		srcX = target->getx();
+		srcY = target->gety();
+		visible = false;
+	}
+
+	virtual void update() {
+		if (!target) return;
+
+		// interpolate...
+		float delta = (float)currentStep / (float)totalSteps;
+		float newx = srcX + delta * (destX - srcX);
+		float newy = srcY + delta * (destY - srcY);
+		target->setxy(newx, newy);
+
+		currentStep++;
+
+		if (currentStep >= totalSteps) {
+			kill();
+			target = nullptr;
+		}
+	}
+};
+
+//TODO - implement
+class DissolveAnimator : public Sprite {
+	DissolveAnimator (const shared_ptr<Sprite> &target) {
+	}
 };
 
 
@@ -462,6 +631,10 @@ public:
 		sprites.push_back(val);
 	}
 
+	void push_front(const shared_ptr<Sprite> &val) {
+		sprites.push_front(val);
+	}
+
 	void killAll() {
 		for (auto sp : sprites) {
 			sp->kill();
@@ -485,6 +658,11 @@ public:
 		}
 	}
 
+	void move(const shared_ptr<Sprite> &target, float destx, float desty, int steps) {
+		auto animator = make_shared <MoveAnimator>(target, destx, desty, steps);
+		sprites.push_back(animator);
+	}
+
 };
 
 enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
@@ -499,10 +677,8 @@ public:
 	}
 
 	void setValue(Peptide val) {
-		if (data != val) {
-			data = val;
-			FireEvent(EVT_PEPT_CHANGED);
-		}
+		data = val;
+		FireEvent(EVT_PEPT_CHANGED);
 	}
 
 	size_t size() {
@@ -519,7 +695,7 @@ public:
 };
 
 
-class DNAModel : public DataWrapper {
+class DNAModel : public ListWrapper {
 private:
 	OligoNt data;
 public:
@@ -527,10 +703,8 @@ public:
 	}
 
 	void setValue(OligoNt val) {
-		if (data != val) {
-			data = val;
-			FireEvent(EVT_OLIGO_CHANGED);
-		}
+		data = val;
+		FireEvent(ListWrapper::FULL_CHANGE, 0);
 	}
 
 	size_t size() {
@@ -651,8 +825,28 @@ public:
 		OligoNt oldData = data;
 		data = applyMutation(data, pos, mutation);
 
+
 		if (oldData != data) {
-			FireEvent(EVT_OLIGO_CHANGED);
+
+			switch (mutation) {
+			case MutationId::COMPLEMENT:
+			case MutationId::TRANSITION:
+			case MutationId::TRANSVERSION:
+				FireEvent(ListWrapper::SINGLE_CHANGE, pos);
+				break;
+			case MutationId::DELETION:
+				FireEvent(ListWrapper::DELETE, pos);
+				break;
+			case MutationId::INSERTION_A:
+			case MutationId::INSERTION_C:
+			case MutationId::INSERTION_T:
+			case MutationId::INSERTION_G:
+				FireEvent(ListWrapper::INSERT, pos);
+				break;
+			default:
+				FireEvent(ListWrapper::FULL_CHANGE, 0);
+				break;
+			}
 		}
 	}
 
@@ -678,6 +872,7 @@ class MutationCursor : public IComponent {
 	int pos;
 	MutationId mutation;
 public:
+	DissolveEffect dissolve;
 	MutationCursor(GameImpl *parent, MutationId mutation) : parent(parent), pos(0), mutation(mutation) {
 		w = 32;
 		h = 32;
@@ -963,8 +1158,13 @@ private:
 	int currentLevel;
 	shared_ptr<CodonTableView> codonTableView;
 
+public:
 	SpriteGroup world;
-	SpriteGroup geneGroup;
+private:
+
+	// positions in this vector should match the current DNAmodel...
+	vector<shared_ptr<NucleotideSprite>> geneGroup;
+
 	SpriteGroup targetPeptideGroup;
 	SpriteGroup currentPeptideGroup;
 
@@ -995,14 +1195,29 @@ public:
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
 		add(menu);
 
-		currentDNA.AddListener( [=] (int code) {
+		currentDNA.AddListener( [=] (int code, int pos) {
 			currentPeptide.setValue(currentDNA.translate());
-			generateGeneSprites(currentDNA);
+
+			switch(code) {
+				default:
+					generateGeneSprites();
+					break;
+				case ListWrapper::DELETE:
+					geneSpritesDelete(pos);
+					break;
+				case ListWrapper::INSERT:
+					geneSpritesInsert(pos);
+					break;
+				case ListWrapper::SINGLE_CHANGE:
+					mutateGene(pos);
+					break;
+			};
+
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
 			peptideToSprites(currentPeptide, currentPeptideGroup, 10, CURRENT_PEPT_Y);
-			auto t1 = Timer::build(10, [=] () { checkWinCondition(); } ).get();
+			auto t1 = Timer::build(100, [=] () { checkWinCondition(); } ).get();
 			add(t1);
 		});
 
@@ -1016,11 +1231,9 @@ public:
 
 		Resources *res = Engine::getResources();
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
-		img1->setZoom(2.0);
 		add(img1);
 
 		auto img2 = AnimComponent::build(res->getAnim("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 20, 300, 200).get();
-//		img2->setZoom(2.0);
 		add(img2);
 
 		auto balloon = make_shared<TextBalloon>();
@@ -1056,7 +1269,7 @@ public:
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile }));
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile, AA::STP }));
 
-		cout << "Tests ok!";
+		cout << "Tests ok!" << endl;
 	}
 
 	virtual void init() override {
@@ -1104,22 +1317,81 @@ public:
 		}
 	}
 
-	void generateGeneSprites(DNAModel &oligo) {
-
-		int xco = 10;
+	void generateGeneSprite(int pos) {
+		int xco = 10 + NT_STEPSIZE * pos;
 		int yco = GENE_Y;
 
-		geneGroup.killAll();
-
-		for (size_t i = 0; i < oligo.size(); ++i) {
-			char nt = oligo.at(i);
-
-			auto ntSprite = make_shared<NucleotideSprite>(xco, yco, nt);
-			world.push_back(ntSprite);
-			geneGroup.push_back(ntSprite);
-			xco += NT_STEPSIZE;
+		if ((int)geneGroup.size() <= pos) {
+			geneGroup.resize(pos + 1);
 		}
 
+		char nt = currentDNA.at(pos);
+
+		auto ntSprite = make_shared<NucleotideSprite>(this, xco, yco, nt, pos);
+		world.push_front(ntSprite); // insert below any dissolving sprites...
+		geneGroup[pos] = ntSprite;
+	}
+
+	void geneSpritesDelete(int pos) {
+
+		if (geneGroup[pos]) {
+			geneGroup[pos]->startDissolve();
+		}
+
+		for (size_t i = pos; i < currentDNA.size(); ++i) {
+			geneGroup[i] = geneGroup[i+1];
+			geneGroup[i]->moveToPos(i);
+		}
+		geneGroup[currentDNA.size()] = nullptr;
+
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void geneSpritesInsert(int pos) {
+
+		if (geneGroup.size() <= currentDNA.size()) {
+			geneGroup.resize(currentDNA.size());
+		}
+
+		for (int i = currentDNA.size() - 1; i > pos; i --) {
+			geneGroup[i] = geneGroup[i-1];
+			geneGroup[i]->moveToPos(i);
+		}
+
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void mutateGene(int pos) {
+		if (geneGroup[pos]) {
+			geneGroup[pos]->startDissolve();
+		}
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void validateGeneSprites() {
+		Assert(geneGroup.size() >= currentDNA.size(), "missing a gene sprite");
+		for (size_t i = 0; i < currentDNA.size(); ++i) {
+			Assert (geneGroup[i], "Missing a gene sprite");
+			Assert (geneGroup[i]->validate(i, currentDNA.at(i)), "Gene sprite does not validate");
+		}
+	}
+
+	void generateGeneSprites() {
+
+		// clear all pre-existing nucleotides.
+		for (size_t i = 0; i < geneGroup.size(); ++i) {
+			if (geneGroup[i]) { geneGroup[i]->kill(); }
+		}
+
+		// generate fresh ones
+		for (size_t i = 0; i < currentDNA.size(); ++i) {
+			generateGeneSprite(i);
+		}
+
+		validateGeneSprites();
 	}
 
 	void checkWinCondition() {
@@ -1201,13 +1473,22 @@ public:
 	}
 
 	void nextScriptStep() {
-		if (currentScript != currentScriptEnd) {
-			// execute step
-			switch (currentScript->cmd) {
-			case Cmd::SAY:
-				setDoctorText (currentScript->text);
+		bool done = false;
+		while (!done)
+		{
 
+			if (currentScript == currentScriptEnd) {
 				break;
+			}
+				// execute step
+
+			switch (currentScript->cmd) {
+				case Cmd::SAY:
+					setDoctorText (currentScript->text);
+					done = true;
+					break;
+				default:
+					break;
 			}
 
 			// advance pointer
@@ -1216,10 +1497,12 @@ public:
 	}
 
 	void initLevel() {
+		world.killAll();
+
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
 
-		PuzzleAnalyzer::analyze(*lev);
+//		PuzzleAnalyzer::analyze(*lev);
 
 		currentDNA.setValue(lev->startGene);
 
@@ -1324,3 +1607,10 @@ void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 	}
 	setPos(newpos);
 };
+
+void NucleotideSprite::moveToPos(int _pos) {
+	int xco = 10 + NT_STEPSIZE * _pos;
+	int yco = GENE_Y;
+	pos = _pos;
+	parent->world.move(shared_from_this(), xco, yco, 50);
+}

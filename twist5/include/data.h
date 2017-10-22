@@ -86,5 +86,19 @@ public:
 	void RemoveListener (int handle);
 };
 
+using ListListenerFunction = std::function<void(int, int)>;
+
+class ListWrapper
+{
+private:
+	int nextFunctionHandle = 0;
+	std::map <int, ListListenerFunction> listenerFunctions;
+public:
+	enum { INSERT, DELETE, SINGLE_CHANGE, FULL_CHANGE };
+	void FireEvent(int code, int position);
+	int AddListener (const ListListenerFunction &listener);
+	void RemoveListener (int handle);
+};
+
 #endif
 
