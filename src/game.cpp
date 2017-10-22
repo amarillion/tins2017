@@ -84,15 +84,16 @@ const int NUM_NUCLEOTIDES = 4;
 struct NucleotideInfo {
 	char code;
 	string name;
+	ALLEGRO_BITMAP *card;
 };
 
 enum class NT { T, C, A, G };
 
 NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
-	{ 'T', "Tyrosine" },
-	{ 'C', "Cytosine" },
-	{ 'A', "Adenine" },
-	{ 'G', "Guanosine" }
+	{ 'T', "Tyrosine", nullptr },
+	{ 'C', "Cytosine", nullptr },
+	{ 'A', "Adenine", nullptr },
+	{ 'G', "Guanosine", nullptr }
 };
 
 using Peptide = vector<AA>;
@@ -403,7 +404,7 @@ const int AA_STEPSIZE = AA_WIDTH + AA_SPACING;
 const int AA_PADDING = 8; // padding on inside of AA card.
 
 const int NT_WIDTH = 30;
-const int NT_HEIGHT = 2 * NT_WIDTH;
+const int NT_HEIGHT = 80;
 const int NT_SPACING = 8;
 const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 
@@ -459,6 +460,7 @@ private:
 	bool isAnimating = false;
 	const int MAX_COUNTER = 100;
 	int counter = 0;
+	ALLEGRO_BITMAP *sprite;
 public:
 	NucleotideSprite(GameImpl *parent, double x, double y, char code, int pos) : parent(parent), code(code), pos(pos) {
 		this->x = x;
@@ -467,30 +469,22 @@ public:
 		h = NT_HEIGHT;
 		idx = getNucleotideIndex(code);
 		info = &nucleotideInfo[(int)idx];
+		sprite = info->card;
+		Assert(sprite, "No valid sprite");
 	}
 
-	virtual void drawCard(const GraphicsContext &gc) {
-		double x1 = x + gc.xofst;
-		double y1 = y + gc.yofst;
-
-		ALLEGRO_COLOR mainColor = getNucleotideColor(idx, 0.5);
-		ALLEGRO_COLOR shadeColor = getNucleotideColor(idx, 1.0);
-
-		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, shadeColor);
-		al_draw_rectangle(x1, y1, x1 + w, y1 + h, mainColor, 1.0);
-
-		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
+	void drawBitmap(const GraphicsContext &gc) {
+		al_draw_bitmap (sprite, x + gc.xofst, y + gc.yofst, 0);
 	}
 
 	virtual void draw(const GraphicsContext &gc) {
-		int msec = (MainLoop::getMainLoop()->getMsecCounter() % 1000);
 		if (isAnimating) {
 			dissolve.withPattern( (float)counter/(float)MAX_COUNTER,
-				[=]() {	drawCard(gc); }
+				[=]() {	drawBitmap(gc); }
 			);
 		}
 		else {
-			drawCard(gc);
+			drawBitmap(gc);
 		}
 	};
 
@@ -514,6 +508,56 @@ public:
 	bool validate(int _pos, char _code) {
 		return (pos == _pos) && (code == _code);
 	}
+};
+
+void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
+	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
+	al_draw_rectangle(x1, y1, x2, y2, outer, w);
+}
+
+class CardRenderer {
+
+	Resources *res;
+	ALLEGRO_FONT *font;
+
+	CardRenderer() {
+		res = Engine::getResources();
+		font = res->getFont("builtin_font");
+	}
+
+	ALLEGRO_BITMAP *drawNucleotideCard(int idx) {
+		ALLEGRO_BITMAP *result = al_create_bitmap (NT_WIDTH, NT_HEIGHT);
+		Assert(result, "couldn't create a bitmap");
+
+		NucleotideInfo *info = &nucleotideInfo[idx];
+
+		ALLEGRO_COLOR mainColor = getNucleotideColor((NT)idx, 0.5);
+		ALLEGRO_COLOR shadeColor = getNucleotideColor((NT)idx, 1.0);
+
+		al_set_target_bitmap(result);
+		drawOutlinedRect(0, 0, NT_WIDTH, NT_HEIGHT, mainColor, shadeColor, 1.0);
+
+		draw_shaded_textf(font, WHITE, GREY, 5, 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
+		return result;
+	}
+
+	void drawNucleotideCards() {
+		for (int i = 0; i < NUM_NUCLEOTIDES; ++i) {
+			ALLEGRO_BITMAP *bmp = drawNucleotideCard(i);
+			stringstream ss;
+			ss << "NUCLEOTIDE_" << i;
+			res->putBitmap(ss.str(), bmp);
+			NucleotideInfo *info = &nucleotideInfo[i];
+			info->card = bmp;
+		}
+	}
+
+public:
+	static void drawCards() {
+		CardRenderer renderer;
+		renderer.drawNucleotideCards();
+	}
+
 };
 
 class MoveAnimator : public Sprite {
@@ -859,11 +903,6 @@ public:
 		return newData;
 	}
 };
-
-void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
-	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
-	al_draw_rectangle(x1, y1, x2, y2, outer, w);
-}
 
 class GameImpl;
 
@@ -1274,7 +1313,7 @@ public:
 
 	virtual void init() override {
 		test();
-//		font = al_create_builtin_font(); // TODO fragile initialization of global... Wrap font in a Singleton...
+		CardRenderer::drawCards();
 	}
 
 	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
@@ -1283,6 +1322,8 @@ public:
 
 		int xco = ax;
 		int yco = ay;
+
+		xco += AA_SPACING / 2;
 
 		for (size_t i = 0; i < pep.size(); ++i) {
 			AA aaIdx = pep.at(i);
