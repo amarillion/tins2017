@@ -1,0 +1,19 @@
+<gamedata>"
+
+	<anim id='Bigbunnybed' hotx = '0' hoty = '0'>
+		<frame rle='Bigbunnybed' time='200'/>
+		<frame rle='Bigbunnybed2' time='200'/>
+	</anim>
+
+	<anim id='dance' hotx = '0' hoty = '0'>
+		<frame rle='BunBack0' time='200'/>
+		<frame rle='BunBack1' time='200'/>
+		<frame rle='BunBack2' time='200'/>
+		<frame rle='BunBack3' time='200'/>
+
+		<frame rle='BunFront1' time='200'/>
+		<frame rle='BunFront2' time='200'/>
+		<frame rle='BunFront3' time='200'/>
+	</anim>
+
+</gamedata>
