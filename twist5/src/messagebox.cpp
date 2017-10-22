@@ -11,6 +11,7 @@ class MessageBoxImpl : public MessageBox
 	int response = -1;
 
 public:
+	vector<shared_ptr<Button>> buttons;
 	int getResponse() { return response; }
 	MessageBoxImpl(const char * title, const char *message, const char *btn1, const char *btn2, const char *btn3)
 	{
@@ -48,6 +49,7 @@ public:
 			auto btn = Button::build(
 					[=]{ this->response = btnIdx; pushMsg(MSG_CLOSE); },
 					btnStr).layout(Layout::CENTER_BOTTOM_W_H, xco, yco, buttonw, buttonh).get();
+			buttons.push_back(btn);
 			getClient()->add(btn);
 			xco += buttonw + spacer;
 			btnIdx++;
@@ -55,6 +57,16 @@ public:
 
 	}
 };
+
+void MessageBox::showMessageAsync(const char * title, const char *message, const char *btn1, ActionFunc actionFunc)
+{
+	auto dlg = make_shared<MessageBoxImpl>(
+			title, message, btn1, nullptr, nullptr
+	);
+	dlg->buttons[0]->setActionFunc(actionFunc);
+	dlg->Centre();
+	dlg->Popup(nullptr);
+}
 
 int MessageBox::showMessage(const char * title, const char *message, const char *btn1, const char *btn2, const char *btn3)
 {

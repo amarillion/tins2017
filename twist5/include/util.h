@@ -72,5 +72,5 @@ void log(const char* msg, ...);
 #define QUOTE(name) #name
 
 
-#define Assert(cond, msg) ((cond) && (msg))
+#define Assert(cond, msg) assert((cond) && (msg))
 #endif

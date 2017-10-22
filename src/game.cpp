@@ -15,6 +15,9 @@
 #include "data.h"
 #include "messagebox.h"
 #include <algorithm>
+#include "timer.h"
+#include "text.h"
+#include <sstream>
 
 using namespace std;
 
@@ -101,7 +104,7 @@ struct LevelInfo {
 	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 7;
+const int NUM_LEVELS = 10;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{ { AA::Trp, AA::Val }, "TGTGTT", { MutationId::TRANSVERSION } },
@@ -116,11 +119,27 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{ { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
+	{ { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
+
+	{ { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
+
+	{ { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
+
 	// GATTACA
 	// CAT CAT
 	// TAG GAG ACT CAT
 
+	// Arg:CGT/CGC/CGA/CGG/AGA/AGG
+	// Asp:GAT/GAC
+	// Tyr:TTT/TTC
+	// Leu:CTT/CTC/CTA/CTG/TTA/TTG
+	// Ile ATT/ATC/ATA"
+
 	//TODO: // introducing stop codon
+
+	// transition:    G<->A   T<->C
+	// complement:    G<->C   A<->T
+	// transversion:  G<->T   A<->C
 };
 
 NT getNucleotideIndex(char c) {
@@ -523,6 +542,20 @@ public:
 		}
 	}
 
+	/** ignores stop codons and everything after */
+	static bool match(Peptide aPep, Peptide bPep) {
+		bool stopCodonFound = false;
+		int pos = 0;
+		while (true) {
+			AA a = (pos < aPep.size() ? aPep.at(pos) : AA::STP);
+			AA b = (pos < bPep.size() ? bPep.at(pos) : AA::STP);
+
+			if (a != b) { return false; }
+			if (a == AA::STP) { return true; }
+			pos++;
+		}
+	}
+
 	static OligoNt applyMutation(const OligoNt &src, int pos, MutationId mutation) {
 		OligoNt data = src;
 		switch (mutation) {
@@ -630,6 +663,7 @@ class PuzzleAnalyzer {
 private:
 	LevelInfo level;
 	Solution currentSolution;
+	map<Peptide, int> solutionFrequency;
 
 	PuzzleAnalyzer(LevelInfo level) : level(level) {
 
@@ -713,26 +747,50 @@ private:
 		return score;
 	}
 
-	static void showSolution(const Solution &solution, const LevelInfo &level) {
+	static string peptideToString(const Peptide &pept) {
+		stringstream ss;
+		for (size_t i = 0; i < pept.size(); ++i) {
+			ss << aminoAcidInfo[static_cast<int>(pept.at(i))].threeLetterCode;
+		}
+		return ss.str();
+	}
+
+	static void analyseSolution(const Solution &solution, const LevelInfo &level, map<Peptide, int> &solutionFrequency) {
 
 		OligoNt gene = level.startGene;
+		Peptide pept;
 
 		for (size_t i = 0; i < solution.mutations.size(); ++i) {
+
 			cout << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
 			gene = DNAModel::applyMutation(gene, solution.positions[i], solution.mutations[i]);
+
+			pept = DNAModel::translate(gene);
+			if (DNAModel::match (pept, level.targetPeptide)) break; // already solved
 		}
 
-		cout << gene << " ";
-		Peptide pept = DNAModel::translate(gene);
-
-		for (size_t i = 0; i < pept.size(); ++i) {
-			cout << aminoAcidInfo[static_cast<int>(pept.at(i))].threeLetterCode;
-		}
+		cout << gene << " " << peptideToString(pept);
 
 		int dist = distanceScore(pept, level.targetPeptide);
 		cout << " " << dist;
-		if (dist == 0) { cout << " *"; }
+
+		if (DNAModel::match(pept, level.targetPeptide)) { cout << " *"; }
 		cout << endl;
+
+		if (solutionFrequency.find(pept) == solutionFrequency.end()) {
+			solutionFrequency[pept] = 1;
+		}
+		else {
+			solutionFrequency[pept] += 1;
+		}
+	}
+
+	void showAnalysis() {
+		cout << "Solution frequency:" << endl;
+		for (auto pair : solutionFrequency) {
+			cout << peptideToString(pair.first);
+			cout << " " << pair.second << endl;
+		}
 	}
 
 	void bruteForce() {
@@ -740,8 +798,10 @@ private:
 		OligoNt current = level.startGene;
 		std::sort (mutationCards.begin(), mutationCards.end());
 		do {
-			showSolution(currentSolution, level);
+			analyseSolution(currentSolution, level, solutionFrequency);
 		} while (nextSolution(currentSolution, level));
+
+		showAnalysis();
 	}
 
 public:
@@ -845,9 +905,11 @@ private:
 	shared_ptr<MutationCursor> mutationCursor;
 	shared_ptr<Container> menu;
 
+	shared_ptr<Container> popup;
+	ActionFunc popupAction;
 public:
 
-	GameImpl() : currentLevel(6), world() {
+	GameImpl() : currentLevel(9), world() {
 		codonTableView = make_shared<CodonTableView>();
 		codonTableView->setLayout(Layout::LEFT_TOP_RIGHT_BOTTOM, 40, 40, 40, 40);
 		codonTableView->setVisible(false); // start hidden
@@ -864,7 +926,8 @@ public:
 
 		currentPeptide.AddListener( [=] (int code) {
 			peptideToSprites(currentPeptide, currentPeptideGroup, 10, CURRENT_PEPT_Y);
-			checkWinCondition();
+			auto t1 = Timer::build(10, [=] () { checkWinCondition(); } ).get();
+			add(t1);
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
@@ -880,7 +943,7 @@ public:
 		img1->setZoom(2.0);
 		add(img1);
 
-		auto img2 = BitmapComp::build(res->getBitmap("bunmachine")).xywh(800-240, 0, 240, 240).get();
+		auto img2 = BitmapComp::build(res->getBitmap("Bigbunnybed")).layout(Layout::RIGHT_TOP_W_H, 0, 0, 600, 400).get();
 		img2->setZoom(2.0);
 		add(img2);
 	}
@@ -896,7 +959,25 @@ public:
 		initLevel();
 	}
 
+	// sanity test at startup. TODO: should be unit test
+	void test() {
+		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Thr }));
+		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ }));
+		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Thr }));
+		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Tyr, AA::Tyr }));
+
+		assert (DNAModel::match(Peptide{}, Peptide{}));
+		assert (DNAModel::match(Peptide{ AA::Ile }, Peptide{ AA::Ile }));
+		assert (DNAModel::match(Peptide{ AA::Ile }, Peptide{ AA::Ile, AA::STP }));
+		assert (DNAModel::match(Peptide{ AA::STP }, Peptide{}));
+		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile }));
+		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile, AA::STP }));
+
+		cout << "Tests ok!";
+	}
+
 	virtual void init() override {
+		test();
 		font = al_create_builtin_font(); // TODO fragile initialization of global... Wrap font in a Singleton...
 	}
 
@@ -959,11 +1040,37 @@ public:
 	}
 
 	void checkWinCondition() {
-		if (currentPeptide.getValue() == targetPeptide.getValue()) {
-			MessageBox::showMessage("Complete", "You completed the level", "OK", nullptr, nullptr);
-
+		if (DNAModel::match (currentPeptide.getValue(), targetPeptide.getValue())) {
 			currentLevel++;
-			initLevel();
+
+			if (currentLevel >= NUM_LEVELS) {
+				showMessage("You finished all levels, you won the game!",
+						[=] () { pushMsg(Engine::E_QUIT); } );
+
+			}
+			else {
+				showMessage("You completed the level",
+						[=] () { initLevel(); } );
+			}
+		}
+	}
+
+	void showMessage(const char *text, ActionFunc actionFunc) {
+
+		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
+		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
+
+		auto t1 = Text::build(WHITE, ALLEGRO_ALIGN_CENTER, string(text)).layout (Layout::LEFT_TOP_RIGHT_H, 0, 50, 0, 100).get();
+		popup->add (t1);
+
+		popupAction = actionFunc;
+		add (popup);
+	}
+
+	void closePopup() {
+		if (popup) {
+			popup->kill();
+			popup = nullptr;
 		}
 	}
 
@@ -1017,17 +1124,27 @@ public:
 	}
 
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
-		Container::handleEvent(event);
 
-		if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-			switch (event.keyboard.keycode) {
-				case ALLEGRO_KEY_F2:
-					codonTableView->setVisible(!codonTableView->isVisible());
-					break;
+		if (popup) {
+			if (event.type == ALLEGRO_EVENT_KEY_CHAR ||
+				event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+					popupAction();
+					closePopup();
 			}
 		}
+		else {
+			Container::handleEvent(event);
 
-		if (mutationCursor) mutationCursor->handleEvent(event);
+			if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+				switch (event.keyboard.keycode) {
+					case ALLEGRO_KEY_F2:
+						codonTableView->setVisible(!codonTableView->isVisible());
+						break;
+				}
+			}
+
+			if (mutationCursor) mutationCursor->handleEvent(event);
+		}
 	}
 
 };
