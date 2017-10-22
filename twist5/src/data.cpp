@@ -37,3 +37,26 @@ int DataWrapper::AddListener (const DataListenerFunction &listener)
 	nextFunctionHandle++;
 	return result;
 }
+
+void ListWrapper::FireEvent (int code, int pos)
+{
+	// notify all listeners of event
+	for (auto i : listenerFunctions) {
+		i.second(code, pos);
+	}
+}
+
+void ListWrapper::RemoveListener (int handle) {
+	auto it = listenerFunctions.find(handle);
+	if (it != listenerFunctions.end()) {
+		listenerFunctions.erase (it);
+	}
+}
+
+int ListWrapper::AddListener (const ListListenerFunction &listener)
+{
+	int result = nextFunctionHandle;
+	listenerFunctions[nextFunctionHandle] = listener;
+	nextFunctionHandle++;
+	return result;
+}

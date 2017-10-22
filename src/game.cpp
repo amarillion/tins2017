@@ -124,8 +124,8 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::SAY, "This is the peptide we need." },
 		{ Cmd::SAY, "This gene looks almost right. We just need one mutation.\n"
 				"A transversion is all we need.\n"
-				"A transversion mutates an A into a C, or a G into a T. Or vice versa.\n"
-				"The symbols on the transversion can help you remember this."
+				"A transversion mutates an A into a C, or a G into a T.\nOr vice versa.\n"
+				"The symbol on the transversion card indicates this."
 		},
 	}, {
 		// 2
@@ -182,8 +182,9 @@ public:
 			"	vec3 color = vec3(0.0);"
 			"	float checkSize = 3.0;"
 			"	st /= checkSize;"
+			"	float step = 20.0;"
 			"	float cellNo = mod(floor(st.x), 8.0) + 8.0 * mod(floor(st.y), 8.0);"
-			"	float fmodResult = mod (floor(cellNo / 17.0) + mod(cellNo, 17.0) * 17.0, 64.0);"
+			"	float fmodResult = mod (floor(cellNo / step) + mod(cellNo, step) * step, 64.0);"
 			"	if (fmodResult / 64.0 < uTime) {"
 			"		discard;"
 			"	}"
@@ -420,8 +421,8 @@ const int MUTCARD_H = 40;
 class Sprite
 {
 protected:
-	double x; // cell-x
-	double y;
+	float x; // cell-x
+	float y;
 
 	int w;
 	int h;
@@ -436,24 +437,30 @@ public:
 	bool isVisible() { return visible; }
 	virtual void draw(const GraphicsContext &gc) {};
 	virtual void update() {};
-
+	float getx() { return x; }
+	float gety() { return y; }
+	void setxy (int _x, int _y) { x = _x; y = _y; }
 	Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true) {
 		font = Engine::getResources()->getFont("builtin_font");
 	}
 	virtual ~Sprite() {}
 };
 
-class NucleotideSprite : public Sprite {
+class GameImpl;
+
+class NucleotideSprite : public Sprite, public enable_shared_from_this<NucleotideSprite> {
 private:
+	GameImpl *parent;
 	NucleotideInfo *info;
 	char code;
+	int pos;
 	NT idx;
 	DissolveEffect dissolve; // TODO - make static but initialize at the right moment...
 	bool isAnimating = false;
 	const int MAX_COUNTER = 100;
 	int counter = 0;
 public:
-	NucleotideSprite(double x, double y, char code) : code(code) {
+	NucleotideSprite(GameImpl *parent, double x, double y, char code, int pos) : parent(parent), code(code), pos(pos) {
 		this->x = x;
 		this->y = y;
 		w = NT_WIDTH;
@@ -492,6 +499,7 @@ public:
 			counter++;
 			if (counter > MAX_COUNTER) {
 				kill();
+				isAnimating = false;
 			}
 		}
 	}
@@ -501,6 +509,50 @@ public:
 		counter = 0;
 	}
 
+	void moveToPos(int _pos);
+
+	bool validate(int _pos, char _code) {
+		return (pos == _pos) && (code == _code);
+	}
+};
+
+class MoveAnimator : public Sprite {
+
+	float destX, destY;
+	float srcX, srcY;
+	shared_ptr<Sprite> target;
+	int totalSteps;
+	int currentStep;
+public:
+	MoveAnimator (const shared_ptr<Sprite> &target, float destX, float destY, int steps) :
+		destX(destX), destY(destY), target(target), totalSteps(steps), currentStep(0) {
+		srcX = target->getx();
+		srcY = target->gety();
+		visible = false;
+	}
+
+	virtual void update() {
+		if (!target) return;
+
+		// interpolate...
+		float delta = (float)currentStep / (float)totalSteps;
+		float newx = srcX + delta * (destX - srcX);
+		float newy = srcY + delta * (destY - srcY);
+		target->setxy(newx, newy);
+
+		currentStep++;
+
+		if (currentStep >= totalSteps) {
+			kill();
+			target = nullptr;
+		}
+	}
+};
+
+//TODO - implement
+class DissolveAnimator : public Sprite {
+	DissolveAnimator (const shared_ptr<Sprite> &target) {
+	}
 };
 
 
@@ -606,6 +658,11 @@ public:
 		}
 	}
 
+	void move(const shared_ptr<Sprite> &target, float destx, float desty, int steps) {
+		auto animator = make_shared <MoveAnimator>(target, destx, desty, steps);
+		sprites.push_back(animator);
+	}
+
 };
 
 enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
@@ -620,10 +677,8 @@ public:
 	}
 
 	void setValue(Peptide val) {
-		if (data != val) {
-			data = val;
-			FireEvent(EVT_PEPT_CHANGED);
-		}
+		data = val;
+		FireEvent(EVT_PEPT_CHANGED);
 	}
 
 	size_t size() {
@@ -640,7 +695,7 @@ public:
 };
 
 
-class DNAModel : public DataWrapper {
+class DNAModel : public ListWrapper {
 private:
 	OligoNt data;
 public:
@@ -648,10 +703,8 @@ public:
 	}
 
 	void setValue(OligoNt val) {
-		if (data != val) {
-			data = val;
-			FireEvent(EVT_OLIGO_CHANGED);
-		}
+		data = val;
+		FireEvent(ListWrapper::FULL_CHANGE, 0);
 	}
 
 	size_t size() {
@@ -772,8 +825,28 @@ public:
 		OligoNt oldData = data;
 		data = applyMutation(data, pos, mutation);
 
+
 		if (oldData != data) {
-			FireEvent(EVT_OLIGO_CHANGED);
+
+			switch (mutation) {
+			case MutationId::COMPLEMENT:
+			case MutationId::TRANSITION:
+			case MutationId::TRANSVERSION:
+				FireEvent(ListWrapper::SINGLE_CHANGE, pos);
+				break;
+			case MutationId::DELETION:
+				FireEvent(ListWrapper::DELETE, pos);
+				break;
+			case MutationId::INSERTION_A:
+			case MutationId::INSERTION_C:
+			case MutationId::INSERTION_T:
+			case MutationId::INSERTION_G:
+				FireEvent(ListWrapper::INSERT, pos);
+				break;
+			default:
+				FireEvent(ListWrapper::FULL_CHANGE, 0);
+				break;
+			}
 		}
 	}
 
@@ -1085,8 +1158,13 @@ private:
 	int currentLevel;
 	shared_ptr<CodonTableView> codonTableView;
 
+public:
 	SpriteGroup world;
-	list<shared_ptr<NucleotideSprite>> geneGroup;
+private:
+
+	// positions in this vector should match the current DNAmodel...
+	vector<shared_ptr<NucleotideSprite>> geneGroup;
+
 	SpriteGroup targetPeptideGroup;
 	SpriteGroup currentPeptideGroup;
 
@@ -1117,14 +1195,29 @@ public:
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
 		add(menu);
 
-		currentDNA.AddListener( [=] (int code) {
+		currentDNA.AddListener( [=] (int code, int pos) {
 			currentPeptide.setValue(currentDNA.translate());
-			generateGeneSprites(currentDNA);
+
+			switch(code) {
+				default:
+					generateGeneSprites();
+					break;
+				case ListWrapper::DELETE:
+					geneSpritesDelete(pos);
+					break;
+				case ListWrapper::INSERT:
+					geneSpritesInsert(pos);
+					break;
+				case ListWrapper::SINGLE_CHANGE:
+					mutateGene(pos);
+					break;
+			};
+
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
 			peptideToSprites(currentPeptide, currentPeptideGroup, 10, CURRENT_PEPT_Y);
-			auto t1 = Timer::build(10, [=] () { checkWinCondition(); } ).get();
+			auto t1 = Timer::build(100, [=] () { checkWinCondition(); } ).get();
 			add(t1);
 		});
 
@@ -1176,7 +1269,7 @@ public:
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile }));
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile, AA::STP }));
 
-		cout << "Tests ok!";
+		cout << "Tests ok!" << endl;
 	}
 
 	virtual void init() override {
@@ -1224,24 +1317,81 @@ public:
 		}
 	}
 
-	void generateGeneSprites(DNAModel &oligo) {
-
-		int xco = 10;
+	void generateGeneSprite(int pos) {
+		int xco = 10 + NT_STEPSIZE * pos;
 		int yco = GENE_Y;
 
-		for (auto sp : geneGroup) {
-			sp->startDissolve();
+		if ((int)geneGroup.size() <= pos) {
+			geneGroup.resize(pos + 1);
 		}
 
-		for (size_t i = 0; i < oligo.size(); ++i) {
-			char nt = oligo.at(i);
+		char nt = currentDNA.at(pos);
 
-			auto ntSprite = make_shared<NucleotideSprite>(xco, yco, nt);
-			world.push_front(ntSprite); // insert below any dissolving sprites...
-			geneGroup.push_back(ntSprite);
-			xco += NT_STEPSIZE;
+		auto ntSprite = make_shared<NucleotideSprite>(this, xco, yco, nt, pos);
+		world.push_front(ntSprite); // insert below any dissolving sprites...
+		geneGroup[pos] = ntSprite;
+	}
+
+	void geneSpritesDelete(int pos) {
+
+		if (geneGroup[pos]) {
+			geneGroup[pos]->startDissolve();
 		}
 
+		for (size_t i = pos; i < currentDNA.size(); ++i) {
+			geneGroup[i] = geneGroup[i+1];
+			geneGroup[i]->moveToPos(i);
+		}
+		geneGroup[currentDNA.size()] = nullptr;
+
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void geneSpritesInsert(int pos) {
+
+		if (geneGroup.size() <= currentDNA.size()) {
+			geneGroup.resize(currentDNA.size());
+		}
+
+		for (int i = currentDNA.size() - 1; i > pos; i --) {
+			geneGroup[i] = geneGroup[i-1];
+			geneGroup[i]->moveToPos(i);
+		}
+
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void mutateGene(int pos) {
+		if (geneGroup[pos]) {
+			geneGroup[pos]->startDissolve();
+		}
+		generateGeneSprite(pos);
+		validateGeneSprites();
+	}
+
+	void validateGeneSprites() {
+		Assert(geneGroup.size() >= currentDNA.size(), "missing a gene sprite");
+		for (size_t i = 0; i < currentDNA.size(); ++i) {
+			Assert (geneGroup[i], "Missing a gene sprite");
+			Assert (geneGroup[i]->validate(i, currentDNA.at(i)), "Gene sprite does not validate");
+		}
+	}
+
+	void generateGeneSprites() {
+
+		// clear all pre-existing nucleotides.
+		for (size_t i = 0; i < geneGroup.size(); ++i) {
+			if (geneGroup[i]) { geneGroup[i]->kill(); }
+		}
+
+		// generate fresh ones
+		for (size_t i = 0; i < currentDNA.size(); ++i) {
+			generateGeneSprite(i);
+		}
+
+		validateGeneSprites();
 	}
 
 	void checkWinCondition() {
@@ -1323,13 +1473,22 @@ public:
 	}
 
 	void nextScriptStep() {
-		if (currentScript != currentScriptEnd) {
-			// execute step
-			switch (currentScript->cmd) {
-			case Cmd::SAY:
-				setDoctorText (currentScript->text);
+		bool done = false;
+		while (!done)
+		{
 
+			if (currentScript == currentScriptEnd) {
 				break;
+			}
+				// execute step
+
+			switch (currentScript->cmd) {
+				case Cmd::SAY:
+					setDoctorText (currentScript->text);
+					done = true;
+					break;
+				default:
+					break;
 			}
 
 			// advance pointer
@@ -1338,10 +1497,12 @@ public:
 	}
 
 	void initLevel() {
+		world.killAll();
+
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
 
-		PuzzleAnalyzer::analyze(*lev);
+//		PuzzleAnalyzer::analyze(*lev);
 
 		currentDNA.setValue(lev->startGene);
 
@@ -1446,3 +1607,10 @@ void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
 	}
 	setPos(newpos);
 };
+
+void NucleotideSprite::moveToPos(int _pos) {
+	int xco = 10 + NT_STEPSIZE * _pos;
+	int yco = GENE_Y;
+	pos = _pos;
+	parent->world.move(shared_from_this(), xco, yco, 50);
+}
