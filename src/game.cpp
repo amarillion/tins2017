@@ -117,8 +117,7 @@ Script scripts[NUM_SCRIPTS] = {
 					"We need the antibiotic to be a peptide,\nthat is, a short chain of amino acids." },
 		{ Cmd::SAY, "With a targeted gene mutation,\nthe patients own cells will generate the peptide.\n"
 				"We'll use our silly mutation weapon here to mutate the patient.\n"
-				"Don't worry, this won't hurt a bit.\nI mean, I'm almost certain it won't hurt.\n"
-				"I mean, this probably won't hurt\n" },
+				"Don't worry, this won't hurt a bit.\nI mean, this probably won't hurt.\n" },
 		{ Cmd::SAY, "OK, this might hurt a little." },
 		{ Cmd::SAY, "This is the peptide we need." },
 		{ Cmd::SAY, "This gene looks almost right. We just need one mutation.\n"
@@ -940,12 +939,22 @@ public:
 	virtual void MsgLPress(const Point &p) override;
 };
 
-class AnyKeyAction : public IComponent {
-private:
-	ActionFunc onActivateAction;
-public:
-	void onActivate(ActionFunc actionFunc) {
-		onActivateAction = actionFunc;
+class TextBalloon : public IComponent {
+
+	virtual void draw (const GraphicsContext &gc) override {
+		const double shadow = 10;
+
+		double x1 = getx() + gc.xofst;
+		double y1 = gety() + gc.yofst;
+		double x2 = x1 + getw() - shadow;
+		double y2 = y1 + geth() - shadow;
+
+		const double rx = 10;
+		const double ry = 10;
+
+		al_draw_filled_rounded_rectangle(x1 + shadow, y1 + shadow, x2 + shadow, y2 + shadow, rx, ry, GREY);
+		al_draw_filled_rounded_rectangle(x1, y1, x2, y2, rx, ry, WHITE);
+		al_draw_rounded_rectangle (x1, y1, x2, y2, rx, ry, BLACK, 2.0);
 	};
 };
 
@@ -974,7 +983,6 @@ private:
 
 	Script::iterator currentScript;
 	Script::iterator currentScriptEnd;
-
 public:
 
 	GameImpl() : currentLevel(0), world() {
@@ -1015,8 +1023,12 @@ public:
 //		img2->setZoom(2.0);
 		add(img2);
 
-		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 130, 10, 300, 100).get();
-		add (drText);
+		auto balloon = make_shared<TextBalloon>();
+		balloon->setLayout(Layout::LEFT_TOP_RIGHT_H, 135, 5, 300, 120);
+		add (balloon);
+		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 140, 15, 305, 110).get();
+		add(drText);
+
 	}
 
 	void resetLevel() {
@@ -1138,8 +1150,14 @@ public:
 //		img2->setZoom(2.0);
 		popup->add(img2);
 
-		popupAction = [](){}; // do nothing
+		popupAction = [=](){ pauseComponents(true); };
 		add (popup);
+
+		pauseComponents(false);
+	}
+
+	void pauseComponents(bool val) {
+		drText->setAwake(val);
 	}
 
 	void showMessage(const char *text, ActionFunc actionFunc) {
@@ -1251,7 +1269,7 @@ public:
 
 		if (popup) {
 			if (event.type == ALLEGRO_EVENT_KEY_CHAR ||
-				event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+				event.type == ALLEGRO_EVENT_MOUSE_BUTTON_UP) {
 					popupAction();
 					closePopup();
 			}
