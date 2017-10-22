@@ -19,6 +19,8 @@
 #include "text.h"
 #include <sstream>
 
+#include "mainloop.h"
+
 using namespace std;
 
 enum class AA {
@@ -144,6 +146,90 @@ Script scripts[NUM_SCRIPTS] = {
 					"This causes a frame shift.\n"
 					"With lots of changes downstream." },
 	}
+};
+
+class DissolveEffect {
+
+private:
+	ALLEGRO_SHADER *shader;
+
+public:
+	DissolveEffect()
+	{
+		shader = al_create_shader(ALLEGRO_SHADER_AUTO);
+		assert(shader);
+/*
+		const char *checker_vertex_shader_src =
+			"attribute vec4 al_pos;"
+			"uniform mat4 al_projview_matrix;"
+			"void main()"
+			"{"
+			"	gl_Position = al_projview_matrix * al_pos;"
+			"}";
+*/
+		const char *checker_pixel_shader_src =
+
+			"#version 130\n"
+			"uniform float uTime;"
+			"uniform sampler2D al_tex;\n"
+			"uniform bool al_use_tex;\n"
+			"varying vec4 varying_color;\n"
+			"varying vec2 varying_texcoord;\n"
+
+			"void main(void)"
+			"{"
+			"	vec2 st = gl_FragCoord.xy;"
+			"	vec3 color = vec3(0.0);"
+			"	float checkSize = 8.0;"
+			"	st /= checkSize;"
+			"	float fmodResult = mod(floor(st.x) + floor(st.y), 2.0);"
+			"	if (fmodResult < 1.0) {"
+			"		discard;"
+			"	}"
+			"	if ( al_use_tex )\n"
+			"		gl_FragColor = varying_color * texture2D( al_tex , varying_texcoord);\n"
+			"	else\n"
+			"		gl_FragColor = varying_color;\n"
+			"}";
+
+		bool ok;
+
+		ok = al_attach_shader_source(shader, ALLEGRO_PIXEL_SHADER, checker_pixel_shader_src);
+		//TODO: assert with message format...
+		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+
+		ok = al_attach_shader_source(shader, ALLEGRO_VERTEX_SHADER,
+				al_get_default_shader_source(ALLEGRO_SHADER_GLSL, ALLEGRO_VERTEX_SHADER));
+
+		//TODO: assert with message format...
+		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+
+		ok = al_build_shader(shader);
+		//TODO: assert with message...
+		if (!ok) printf ("al_build_shader failed: %s\n", al_get_shader_log(shader));
+		assert(ok);
+	}
+
+	void withPattern(float time, function<void()> closure)
+	{
+		enable(time);
+		closure();
+		disable();
+	}
+
+	void enable(float time) {
+		al_use_shader(shader);
+		al_set_shader_float("time", time);
+	}
+
+
+	void disable() {
+		al_use_shader(NULL);
+	}
+
+	ALLEGRO_SHADER *getShader() { return shader; }
 };
 
 struct LevelInfo {
@@ -358,10 +444,10 @@ public:
 
 class NucleotideSprite : public Sprite {
 private:
-
 	NucleotideInfo *info;
 	char code;
 	NT idx;
+	DissolveEffect dissolve; // TODO - make static but initialize at the right moment...
 public:
 	NucleotideSprite(double x, double y, char code) : code(code) {
 		this->x = x;
@@ -372,7 +458,7 @@ public:
 		info = &nucleotideInfo[(int)idx];
 	}
 
-	virtual void draw(const GraphicsContext &gc) {
+	virtual void drawCard(const GraphicsContext &gc) {
 		double x1 = x + gc.xofst;
 		double y1 = y + gc.yofst;
 
@@ -383,6 +469,13 @@ public:
 		al_draw_rectangle(x1, y1, x1 + w, y1 + h, mainColor, 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
+	}
+
+	virtual void draw(const GraphicsContext &gc) {
+		int msec = (MainLoop::getMainLoop()->getMsecCounter() % 1000);
+		dissolve.withPattern((float)msec/1000.0f,
+			[=]() {	drawCard(gc); }
+		);
 	};
 };
 
@@ -678,6 +771,7 @@ class MutationCursor : public IComponent {
 	int pos;
 	MutationId mutation;
 public:
+	DissolveEffect dissolve;
 	MutationCursor(GameImpl *parent, MutationId mutation) : parent(parent), pos(0), mutation(mutation) {
 		w = 32;
 		h = 32;

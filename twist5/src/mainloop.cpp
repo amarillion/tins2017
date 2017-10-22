@@ -301,17 +301,18 @@ vector<ALLEGRO_DISPLAY_MODE> getAvailableDisplayModes()
 int MainLoop::initDisplay()
 {
 	bool success = false;
-	int display_flags = 0;
+	int display_flags = ALLEGRO_OPENGL | ALLEGRO_PROGRAMMABLE_PIPELINE;
+
 	switch (screenMode)
 	{
 	case FULLSCREEN:
-		display_flags = ALLEGRO_FULLSCREEN;
+		display_flags |= ALLEGRO_FULLSCREEN;
 		break;
 	case FULLSCREEN_WINDOW:
-		display_flags = ALLEGRO_FULLSCREEN_WINDOW;
+		display_flags |= ALLEGRO_FULLSCREEN_WINDOW;
 		break;
 	case WINDOWED:
-		display_flags = ALLEGRO_WINDOWED;
+		display_flags |= ALLEGRO_WINDOWED;
 		break;
 	default:
 		assert (false);
