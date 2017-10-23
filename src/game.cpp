@@ -75,7 +75,7 @@ MutationInfo mutationInfo[NUM_MUTATIONS] {
 	{ "TRANSVERSION" },
 	{ "TRANSITION" },
 	{ "COMPLEMENT" },
-	{ "REVERSE_COMPLEMENT" },
+	{ "REVERSE COMPLEMENT" },
 	{ "INSERT A" },
 	{ "INSERT C" },
 	{ "INSERT T" },
@@ -466,12 +466,15 @@ protected:
 
 	bool alive;
 	bool visible;
+	bool awake;
 
 	ALLEGRO_FONT *font;
 public:
 	bool isAlive() { return alive; }
 	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
 	bool isVisible() { return visible; }
+	void setAwake(bool value) { awake = value; }
+	bool isAwake() { return awake; }
 
 	virtual void draw(const GraphicsContext &gc) {
 		if (sprite) {
@@ -483,7 +486,9 @@ public:
 	float getx() { return x; }
 	float gety() { return y; }
 	void setxy (int _x, int _y) { x = _x; y = _y; }
-	Sprite() : sprite(nullptr), x(0), y(0), w(16), h(16), alive(true), visible(true) {
+	void setx(int _x) { x = _x; }
+	void sety(int _y) { y = _y; }
+	Sprite() : sprite(nullptr), x(0), y(0), w(16), h(16), alive(true), visible(true), awake(true) {
 		font = Engine::getResources()->getFont("builtin_font");
 	}
 	virtual ~Sprite() {}
@@ -650,7 +655,7 @@ public:
 
 		currentStep++;
 
-		if (currentStep >= totalSteps) {
+		if (currentStep > totalSteps) {
 			target->handleAnimationComplete();
 			kill();
 			target = nullptr;
@@ -752,9 +757,11 @@ public:
 	}
 
 	virtual void update() {
+		if (!awake) return;
+
 		for (auto i : sprites)
 		{
-			if (i->isAlive()) i->update();
+			if (i->isAlive() && i->isAwake()) i->update();
 		}
 
 		sprites.remove_if ( [](shared_ptr<Sprite> i) { return !(i->isAlive()); });
@@ -971,36 +978,48 @@ public:
 
 class GameImpl;
 
-class MutationCursor : public IComponent {
+class MutationCursor : public Sprite {
 	GameImpl *parent;
 	int pos;
-	MutationId mutation;
+	int counter = 0;
 public:
+	int getPos() { return pos; }
 	DissolveEffect dissolve;
-	MutationCursor(GameImpl *parent, MutationId mutation) : parent(parent), pos(0), mutation(mutation) {
+	MutationCursor(GameImpl *parent) : parent(parent), pos(0) {
 		w = 32;
 		h = 32;
-		setLocation(0, 0, w, h);
+		x = 0;
+		h = 0;
 		setPos(0);
-	}
-
-	virtual void draw(const GraphicsContext &gc) override {
-		double x1 = getx() + gc.xofst;
-		double y1 = gety() + gc.yofst;
-
-		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0, 0.5, 0));
-		al_draw_rectangle(x1, y1, x1 + w, y1 + h, GREEN, 1.0);
-
-		draw_shaded_textf(sfont, WHITE, GREY, x1 + 15, y1 + 5, ALLEGRO_ALIGN_LEFT, "cursor");
-
 	}
 
 	void setPos(int newpos) {
 		pos = newpos;
-		setx(SECTION_X + NT_STEPSIZE * pos);
+		counter = 0;
 	}
 
-	virtual void handleEvent(ALLEGRO_EVENT &event) override;
+	virtual void update() override {
+		counter++;
+	}
+
+	virtual void draw(const GraphicsContext &gc) override {
+
+		double x1 = getx() + gc.xofst;
+		double y1 = gety() + gc.yofst;
+
+		ALLEGRO_COLOR color1 = BLACK;
+		ALLEGRO_COLOR color2 = WHITE;
+
+		if ((counter / 5) % 2== 0) {
+			color2 = YELLOW;
+		}
+
+		al_draw_line (x1, y1 + 16, x1 + 16, y1, color1, 5.0);
+		al_draw_line (x1 + 16, y1, x1 + 32, y1 + 16, color1, 5.0);
+
+		al_draw_line (x1, y1 + 16, x1 + 16, y1, color2, 3.0);
+		al_draw_line (x1 + 16, y1, x1 + 32, y1 + 16, color2, 3.0);
+	}
 };
 
 struct Solution {
@@ -1186,27 +1205,52 @@ public:
 
 };
 
-class MutationCard : public Widget {
-private:
-	GameImpl *parent;
+class MutationCardSprite : public Sprite {
+
 	MutationId mutationId;
 	MutationInfo *info;
+	bool focus = false;
+	int counter = 0;
 public:
-	MutationCard(GameImpl *parent, MutationId mutationId) : parent(parent), mutationId(mutationId) {
-		setDimension(MUTCARD_W, MUTCARD_H);
+	int origX;
+	int origY;
+	MutationCardSprite(MutationId mutationId, int xco, int yco) : mutationId(mutationId) {
+		w = MUTCARD_W;
+		h = MUTCARD_H;
+		x = xco;
+		y = yco;
 		info = &mutationInfo[static_cast<int>(mutationId)];
+		ALLEGRO_FONT *font = Engine::getResources()->getFont("builtin_font");
+		origX = xco;
+		origY = yco;
+	}
+
+	MutationId getMutationId() { return mutationId; }
+
+	void setFocus(bool value) {
+		focus = value;
+		counter = 0;
+	}
+
+	virtual void update () override {
+		counter ++;
 	}
 
 	virtual void draw (const GraphicsContext &gc) override {
 
-		double x1 = getx() + gc.xofst;
-		double y1 = gety() + gc.yofst;
-		double x2 = x1 + getw();
-		double y2 = y1 + geth();
-		al_draw_filled_rectangle(x1, y1, x2, y2, al_map_rgb_f(0, 0.5, 0));
+		ALLEGRO_COLOR color1 = al_map_rgb_f(0, 0.5, 0);
+		ALLEGRO_COLOR color2 = al_map_rgb_f(0.5, 0.5, 0);
+
+		ALLEGRO_COLOR color = (focus && ((counter / 5) % 2 == 0) ? color2 : color1);
+
+		double x1 = x + gc.xofst;
+		double y1 = y + gc.yofst;
+		double x2 = x1 + w;
+		double y2 = y1 + h;
+		al_draw_filled_rectangle(x1, y1, x2, y2, color);
 		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
 
-		draw_shaded_textf(sfont, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
+		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
 
 		drawLogo (40, 20);
 	}
@@ -1256,11 +1300,99 @@ public:
 				getNucleotideColor(NT::C, 0.5), 1.0);
 
 	}
-
-	virtual void MsgLPress(const Point &p) override;
 };
 
-class TextBalloon : public IComponent {
+class Controller : public Container {
+private:
+	GameImpl *parent;
+	list<shared_ptr<MutationCardSprite>> cards;
+	shared_ptr<MutationCursor> mutationCursor;
+	list<shared_ptr<MutationCardSprite>>::iterator selectedCard;
+
+public:
+	Controller(GameImpl *parent) : parent(parent) {
+	}
+
+	// wrappers for GameImpl functions, so we can keep the main body here...
+	void addToWorld(const shared_ptr<Sprite> &val);
+
+	void handleEvent(ALLEGRO_EVENT &event);
+
+	void initMutationCards(vector<MutationId> mutations) {
+
+		cards.clear();
+
+		int yco = gety();
+
+		int i = 0;
+
+		for (auto mut : mutations) {
+			int xco = getx();
+			if (i % 2 == 0) { xco += BUTTONW + 10; }
+
+			auto mutCard = make_shared<MutationCardSprite>(mut, xco, yco);
+
+			addToWorld(mutCard);
+
+			if (i % 2 == 1) {
+				yco += MUTCARD_H + 4;
+			}
+
+			cards.push_back(mutCard);
+			i++;
+		}
+
+		selectedCard = cards.begin();
+		(*selectedCard)->setFocus(true);
+
+	}
+
+	void changeCardFocus(int delta) {
+		if (cards.size() == 0) return;
+
+		int maxIt = cards.size();
+		auto oldSelectedCard = selectedCard;
+
+		if (selectedCard == cards.end()) selectedCard = cards.begin();
+
+		while (selectedCard != cards.end() && maxIt >= 0) {
+			if (delta > 0) {
+				selectedCard++;
+				if (selectedCard == cards.end()) selectedCard = cards.begin();
+			}
+			else {
+				if (selectedCard == cards.begin()) {
+					// TODO - ugly. No good way to wrap a bidirectional iterator?
+					for (size_t i = 0; i < cards.size() - 1; ++i) { selectedCard++; }
+				} else {
+					selectedCard--;
+				}
+			}
+			maxIt--;
+		}
+
+		if (oldSelectedCard != selectedCard) {
+			if (oldSelectedCard != cards.end()) {
+				(*oldSelectedCard)->setFocus(false);
+			}
+			if (selectedCard != cards.end()) {
+				(*selectedCard)->setFocus(true);
+			}
+		}
+	}
+
+	void createMutationCursor() {
+		if (mutationCursor) { mutationCursor->kill(); }
+		mutationCursor = make_shared<MutationCursor>(parent);
+		mutationCursor->setxy(SECTION_X, CURSOR_Y);
+		addToWorld(mutationCursor);
+	}
+
+	// no draw method... just controlling the game
+
+};
+
+//class TextBalloon : public IComponent {
 
 	virtual void draw (const GraphicsContext &gc) override {
 		const double shadow = 10;
@@ -1297,8 +1429,7 @@ private:
 	PeptideModel currentPeptide;
 	vector<MutationId> currentMutationCards; // TODO: also as model?
 
-	shared_ptr<MutationCursor> mutationCursor;
-	shared_ptr<Container> menu;
+	shared_ptr<Controller> menu;
 
 	shared_ptr<Text> drText;
 
@@ -1315,11 +1446,12 @@ public:
 
 	bool isUIEnabled() { return uiEnabled; }
 
-	GameImpl() : currentLevel(0), world() {
+	GameImpl() : currentLevel(2), world() {
 
-		menu = make_shared<Container>();
-		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, BUTTONW * 2 + 30, 200);
+		menu = make_shared<Controller>(this);
+		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, (BUTTONW * 2) + 30, (BUTTONH + 10) * 8);
 		add(menu);
+		setFocus(menu);
 
 		currentDNA.AddListener( [=] (int code, int pos) {
 			currentPeptide.setValue(currentDNA.translate());
@@ -1351,9 +1483,13 @@ public:
 			peptideToSprites(targetPeptide, targetPeptideGroup, SECTION_X, TARGET_PEPT_Y);
 		});
 
-		auto button = Button::build([=](){ resetLevel(); }, "RESET")
-			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 20).get();
+		auto button = Button::build([=](){ resetLevel(); }, "Reset (F1)")
+			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(button);
+
+		auto b2 = Button::build([=](){ pauseScreen(); }, "Pause (Space)")
+			.layout(Layout::RIGHT_BOTTOM_W_H, 140, 10, 120, 24).get();
+		add(b2);
 
 		Resources *res = Engine::getResources();
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
@@ -1444,27 +1580,6 @@ public:
 
 		for (size_t i = 0; i < pep.size(); ++i) {
 			peptideToSprite(pep, group, ax, ay, i);
-		}
-	}
-
-	void createMutationCursor(MutationId mutationId) {
-		if (mutationCursor) { mutationCursor->kill(); }
-
-		mutationCursor = make_shared<MutationCursor>(this, mutationId);
-		mutationCursor->sety(CURSOR_Y);
-		add(mutationCursor);
-	}
-
-	void initMutationCards(vector<MutationId> mutations) {
-		menu->killAll();
-		int xco = menu->getx();
-		int yco = menu->gety();
-
-		for (auto mut : mutations) {
-			auto mutCard = make_shared<MutationCard>(this, mut);
-			mutCard->setxy(xco, yco);
-			menu->add (mutCard);
-			yco += MUTCARD_H + 4;
 		}
 	}
 
@@ -1590,6 +1705,8 @@ public:
 	}
 
 	void pauseScreen() {
+		if (popup) return; // can't pause twice...
+
 		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
 		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
 
@@ -1610,6 +1727,7 @@ public:
 	void pauseComponents(bool val) {
 		drText->setAwake(val);
 		patient->setAwake(val);
+		world.setAwake(val);
 	}
 
 	void showMessage(const char *text, ActionFunc actionFunc) {
@@ -1696,7 +1814,7 @@ public:
 		targetPeptide.setValue(pept);
 
 		currentMutationCards = lev->mutationCards;
-		initMutationCards(currentMutationCards);
+		menu->initMutationCards(currentMutationCards);
 
 		drText->setText("");
 	}
@@ -1711,8 +1829,6 @@ public:
 		if (it != currentMutationCards.end()) {
 			currentMutationCards.erase(it);
 		}
-
-		initMutationCards(currentMutationCards);
 
 		currentDNA.applyMutation(pos, mutationId);
 
@@ -1769,13 +1885,15 @@ public:
 					case ALLEGRO_KEY_F2:
 						showCodonTable();
 						break;
+					case ALLEGRO_KEY_F1:
+						resetLevel();
+						break;
 					case ALLEGRO_KEY_SPACE:
 						pauseScreen();
 						break;
 				}
 			}
 
-			if (mutationCursor) mutationCursor->handleEvent(event);
 		}
 	}
 
@@ -1787,33 +1905,11 @@ shared_ptr<Game> Game::newInstance()
 }
 
 
+/*
 void MutationCard::MsgLPress(const Point &p) {
 	parent->createMutationCursor(mutationId);
 }
-
-void MutationCursor::handleEvent(ALLEGRO_EVENT &event) {
-	int newpos = pos;
-	if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-		switch (event.keyboard.keycode) {
-		case ALLEGRO_KEY_LEFT:
-			newpos = max (0, pos-1);
-			break;
-		case ALLEGRO_KEY_RIGHT:
-			newpos = min(pos+1, parent->getOligoSize() - 1);
-			break;
-		case ALLEGRO_KEY_ENTER:
-			if (!parent->isUIEnabled()) {
-				//TODO: error buzzer sample
-			}
-			else {
-				parent->applyMutation(pos, mutation);
-				kill();
-			}
-			break;
-		}
-	}
-	setPos(newpos);
-};
+*/
 
 void NucleotideSprite::moveToPos(int _pos) {
 	int xco = SECTION_X + NT_STEPSIZE * _pos;
@@ -1842,5 +1938,100 @@ void Ribosome::nextAnimation() {
 		int xco = aaPos * AA_STEPSIZE + (AA_SPACING / 2) + SECTION_X;
 		int yco = RIBOSOME_Y;
 		parent->world.move(shared_from_this(), xco, yco, 50);
+	}
+}
+
+void Controller::addToWorld(const shared_ptr<Sprite> &val) {
+	parent->world.push_back(val);
+}
+
+void Controller::handleEvent(ALLEGRO_EVENT &event) {
+
+	if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+		if (mutationCursor) {
+
+			int pos = mutationCursor->getPos();
+			int newpos = pos;
+
+			switch (event.keyboard.keycode) {
+			case ALLEGRO_KEY_LEFT:
+			case ALLEGRO_KEY_A:
+			case ALLEGRO_KEY_PAD_4:
+			case ALLEGRO_KEY_TAB:
+				newpos = max (0, pos-1);
+				break;
+			case ALLEGRO_KEY_RIGHT:
+			case ALLEGRO_KEY_D:
+			case ALLEGRO_KEY_PAD_6:
+				newpos = min(pos+1, parent->getOligoSize() - 1);
+				break;
+			case ALLEGRO_KEY_ESCAPE:
+				// move card back to where it came from...
+				(*selectedCard)->setFocus(true);
+				parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, 20);
+				mutationCursor->kill();
+				mutationCursor = nullptr;
+				break;
+			case ALLEGRO_KEY_ENTER:
+			case ALLEGRO_KEY_PAD_ENTER:
+				if (!parent->isUIEnabled()) {
+					//TODO: error buzzer sample
+				}
+				else {
+					parent->applyMutation(pos, (*selectedCard)->getMutationId());
+
+					(*selectedCard)->kill();
+					selectedCard = cards.erase(selectedCard);
+					if (selectedCard == cards.end()) selectedCard = cards.begin();
+					if (selectedCard != cards.end()) {
+						(*selectedCard)->setFocus(true);
+					}
+
+					mutationCursor->kill();
+					mutationCursor = nullptr;
+				}
+				break;
+			}
+
+			if (pos != newpos) {
+				mutationCursor->setPos(newpos);
+				int newx = (SECTION_X + NT_STEPSIZE * newpos);
+				parent->world.move(mutationCursor, newx, mutationCursor->gety(), 10);
+			}
+		}
+
+		else {
+
+			switch (event.keyboard.keycode) {
+			case ALLEGRO_KEY_ENTER:
+			case ALLEGRO_KEY_PAD_ENTER:
+				if (selectedCard != cards.end()) {
+					createMutationCursor();
+					(*selectedCard)->setFocus(false);
+					parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
+					break;
+				}
+			case ALLEGRO_KEY_LEFT:
+			case ALLEGRO_KEY_UP:
+			case ALLEGRO_KEY_PGUP:
+			case ALLEGRO_KEY_W:
+			case ALLEGRO_KEY_A:
+			case ALLEGRO_KEY_PAD_4:
+			case ALLEGRO_KEY_PAD_8:
+				changeCardFocus(-1);
+				break;
+			case ALLEGRO_KEY_RIGHT:
+			case ALLEGRO_KEY_DOWN:
+			case ALLEGRO_KEY_PGDN:
+			case ALLEGRO_KEY_S:
+			case ALLEGRO_KEY_D:
+			case ALLEGRO_KEY_PAD_6:
+			case ALLEGRO_KEY_PAD_2:
+			case ALLEGRO_KEY_TAB:
+				changeCardFocus(+1);
+				break;
+			}
+		}
+
 	}
 }
