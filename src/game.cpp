@@ -1382,6 +1382,7 @@ public:
 		}
 
 		if (oldSelectedCard != selectedCard) {
+			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
 			if (oldSelectedCard != cards.end()) {
 				(*oldSelectedCard)->setFocus(false);
 			}
@@ -1683,6 +1684,8 @@ public:
 	void advanceLevel() {
 		currentLevel++;
 
+		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_laser"));
+
 		if (currentLevel >= NUM_LEVELS) {
 			showMessage("You finished all levels, you won the game!",
 					[=] () { pushMsg(Engine::E_QUIT); } );
@@ -1834,6 +1837,7 @@ public:
 					break;
 				case Cmd::BIGEYES:
 					patient->setState(1);
+					MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_scared"));
 					break;
 				case Cmd::NORMALEYES:
 					patient->setState(0);
@@ -1878,6 +1882,7 @@ public:
 		currentDNA.applyMutation(pos, mutationId);
 
 		patient->setState(2);
+		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_laser2"));
 		auto t1 = Timer::build(100, [=](){ patient->setState(0); }).get();
 		add(t1);
 	}
@@ -2040,6 +2045,8 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 
 			if (pos != newpos) {
 				mutationCursor->setPos(newpos);
+				MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
+
 				int newx = (SECTION_X + NT_STEPSIZE * newpos);
 				parent->world.move(mutationCursor, newx, mutationCursor->gety(), 10);
 			}
@@ -2054,6 +2061,8 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 					createMutationCursor();
 					(*selectedCard)->setFocus(false);
 					parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
+					MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
+
 					break;
 				}
 			case ALLEGRO_KEY_LEFT:
