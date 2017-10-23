@@ -54,7 +54,9 @@ void Engine::initMenu()
 		.push_back (make_shared<ActionMenuItem> (E_TOGGLE_FULLSCREEN, "Toggle Fullscreen", "Switch fullscreen / windowed mode"))
 		.build();
 	mMain->setFont(font);
-	mMain->add(ClearScreen::build(BLUE).get(), Container::FLAG_BOTTOM);
+	mMain->add(ClearScreen::build(BLACK).get(), Container::FLAG_BOTTOM);
+	bunny = AnimComponent::build(resources->getAnim("intro")).layout(Layout::LEFT_TOP_W_H, 50, 50, 300, 200).get();
+	mMain->add(bunny);
 	add (mMain);
 }
 
@@ -88,8 +90,13 @@ void Engine::handleMessage(shared_ptr<IComponent> src, int event)
 		MainLoop::getMainLoop()->toggleWindowed();
 		break;
 	case E_START:
-		game->initGame();
-		setFocus(game);
+		bunny->setState(1);
+		mMain->setAwake(false);
+		MainLoop::getMainLoop()->playSample(resources->getSample("sound_scared"));
+		add (Timer::build(100, [=]() {
+			game->initGame();
+			setFocus(game);
+		}).get());
 		break;
 	case E_QUIT:
 		pushMsg(MSG_CLOSE);

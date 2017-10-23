@@ -5,6 +5,7 @@
 #include "resources.h"
 #include "container.h"
 #include "menubase.h"
+#include "DrawStrategy.h"
 
 class Engine : public Container {
 
@@ -14,6 +15,7 @@ private:
 	static bool debugMode;
 	void initMenu();
 	MenuListPtr mMain;
+	std::shared_ptr<AnimComponent> bunny;
 public:
 	enum { E_NONE = 0, E_RESUME, E_QUIT, E_START, E_TOGGLE_FULLSCREEN };
 	std::shared_ptr<Game> game;

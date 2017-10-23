@@ -14,6 +14,16 @@
 		</state>
 	</anim>
 
+	<anim id='intro' hotx = '0' hoty = '0'>
+		<state>
+			<frame rle='intro1' time='600'/>
+			<frame rle='intro2' time='600'/>
+		</state>
+		<state>
+			<frame rle='intro3' time='0'/>
+		</state>
+	</anim>
+
 	<anim id='dance' hotx = '0' hoty = '0'>
 		<frame rle='BunFront1' time='300'/>
 		<frame rle='BunFront2' time='300'/>
