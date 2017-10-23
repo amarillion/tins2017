@@ -4,6 +4,7 @@
 #include "color.h"
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_font.h>
+#include <allegro5/allegro_audio.h>
 
 #include "engine.h"
 #include "util.h"
@@ -1392,7 +1393,7 @@ public:
 
 };
 
-//class TextBalloon : public IComponent {
+class TextBalloon : public IComponent {
 
 	virtual void draw (const GraphicsContext &gc) override {
 		const double shadow = 10;
@@ -1704,8 +1705,42 @@ public:
 		}
 	}
 
+	vector<ALLEGRO_SAMPLE_ID> started;
+
+	void startLoop(const string &id)
+	{
+		ALLEGRO_SAMPLE_ID sampleid;
+		ALLEGRO_SAMPLE *sample_data = Engine::getResources()->getSampleIfExists(id);
+
+		if (!sample_data)
+		{
+			cout << "Could not find sample";
+			return;
+		}
+
+		bool success = al_play_sample (sample_data, 1.0, 0.5, 1.0, ALLEGRO_PLAYMODE_LOOP, &sampleid);
+		if (!success) {
+			 cout << "Could not start sample";
+		}
+
+		started.push_back(sampleid);
+	}
+
+	void clearSound() {
+
+		// stop any looped samples, leaving play-once samples untouched.
+		for (vector<ALLEGRO_SAMPLE_ID>::iterator i = started.begin(); i != started.end(); ++i)
+		{
+			al_stop_sample(&(*i));
+		}
+		started.clear();
+	}
+
+
 	void pauseScreen() {
 		if (popup) return; // can't pause twice...
+
+		startLoop("junglebeat");
 
 		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
 		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
@@ -1718,7 +1753,10 @@ public:
 //		img2->setZoom(2.0);
 		popup->add(img2);
 
-		popupAction = [=](){ pauseComponents(true); };
+		popupAction = [=](){
+			pauseComponents(true);
+			clearSound();
+		};
 		add (popup);
 
 		pauseComponents(false);
