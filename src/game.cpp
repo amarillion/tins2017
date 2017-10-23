@@ -130,10 +130,10 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::NORMALEYES, "" },
 		{ Cmd::ACTIVATE_TARGET, "" },
 		{ Cmd::SAY, "The antibiotic we need is just a single amino acid: Tryptophan.\n"
-					"To produce it, we need a three-letter genetic code of TGT.\n"
+					"To produce it, we need a three-letter genetic code of TGG.\n"
 					"Look at the symbols on the tryptophan card,\nto see which genetic code it needs." },
-		{ Cmd::SAY, "We need TGT to produce Tryptophan, This gene looks almost right.\n"
-				"It is TGG, producing Cysteine.\n"
+		{ Cmd::SAY, "We need TGG to produce Tryptophan, This gene looks almost right.\n"
+				"It is TGT, producing Cysteine.\n"
 				"We just need one mutation.\n"
 				"Use the cursor keys and enter to activate a card.\n"
 				"Move it over to the right spot and press enter to apply.\n"
