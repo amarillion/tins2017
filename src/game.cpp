@@ -19,6 +19,7 @@
 #include "timer.h"
 #include "text.h"
 #include <sstream>
+#include <fstream>
 
 #include "mainloop.h"
 
@@ -134,8 +135,9 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::SAY, "We need TGT to produce Tryptophan, This gene looks almost right.\n"
 				"It is TGG, producing Cysteine.\n"
 				"We just need one mutation.\n"
-				"Activate the mutation card and move it over to the right spot\n"
-				"And press enter to apply it" }
+				"Use the cursor keys and enter to activate a card.\n"
+				"Move it over to the right spot and press enter to apply.\n"
+				}
 	}, { // 2
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "Let's try a different amino acid.\n"
@@ -280,7 +282,7 @@ struct LevelInfo {
 	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 10;
+const int NUM_LEVELS = 13;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{  1, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
@@ -295,11 +297,15 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{  7, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
+	{  0, { AA::Gly, AA::Gly, AA::Asp }, "ACA" "CCA" "CC", { MutationId::REVERSE_COMPLEMENT, MutationId::INSERTION_G, MutationId::TRANSVERSION } },
+
 	{  0, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
 
 	{  0, { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
 
 	{  8, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
+
+	{  0, { AA::His, AA::Pro, AA::Ala, AA::Ala}, "CCG" "CCC" "GGC" "CCG", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
 	// GATTACA
 	// CAT CAT
@@ -1033,8 +1039,9 @@ private:
 	LevelInfo level;
 	Solution currentSolution;
 	map<Peptide, int> solutionFrequency;
+	ostream &os;
 
-	PuzzleAnalyzer(LevelInfo level) : level(level) {
+	PuzzleAnalyzer(LevelInfo level, ostream &os) : level(level), os(os) {
 
 		// initalize currentSolutions
 		currentSolution = firstSolution(level);
@@ -1124,27 +1131,27 @@ private:
 		return ss.str();
 	}
 
-	static void analyseSolution(const Solution &solution, const LevelInfo &level, map<Peptide, int> &solutionFrequency) {
+	static void analyseSolution(const Solution &solution, const LevelInfo &level, map<Peptide, int> &solutionFrequency, ostream &os) {
 
 		OligoNt gene = level.startGene;
 		Peptide pept;
 
 		for (size_t i = 0; i < solution.mutations.size(); ++i) {
 
-			cout << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
+			os << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
 			gene = DNAModel::applyMutation(gene, solution.positions[i], solution.mutations[i]);
 
 			pept = DNAModel::translate(gene);
 			if (DNAModel::match (pept, level.targetPeptide)) break; // already solved
 		}
 
-		cout << gene << " " << peptideToString(pept);
+		os << gene << " " << peptideToString(pept);
 
 		int dist = distanceScore(pept, level.targetPeptide);
-		cout << " " << dist;
+		os << " " << dist;
 
-		if (DNAModel::match(pept, level.targetPeptide)) { cout << " *"; }
-		cout << endl;
+		if (DNAModel::match(pept, level.targetPeptide)) { os << " *"; }
+		os<< endl;
 
 		if (solutionFrequency.find(pept) == solutionFrequency.end()) {
 			solutionFrequency[pept] = 1;
@@ -1155,10 +1162,10 @@ private:
 	}
 
 	void showAnalysis() {
-		cout << "Solution frequency:" << endl;
+		os << "Solution frequency:" << endl;
 		for (auto pair : solutionFrequency) {
-			cout << peptideToString(pair.first);
-			cout << " " << pair.second << endl;
+			os << peptideToString(pair.first);
+			os << " " << pair.second << endl;
 		}
 	}
 
@@ -1167,7 +1174,7 @@ private:
 		OligoNt current = level.startGene;
 		std::sort (mutationCards.begin(), mutationCards.end());
 		do {
-			analyseSolution(currentSolution, level, solutionFrequency);
+			analyseSolution(currentSolution, level, solutionFrequency, os);
 		} while (nextSolution(currentSolution, level));
 
 		showAnalysis();
@@ -1177,8 +1184,10 @@ public:
 
 	static void analyze(LevelInfo level) {
 
-		PuzzleAnalyzer a = PuzzleAnalyzer(level);
+		std::ofstream ofs ("analysis.txt", std::ofstream::out);
+		PuzzleAnalyzer a = PuzzleAnalyzer(level, ofs);
 		a.bruteForce();
+		ofs.close();
 	}
 };
 
@@ -1447,7 +1456,7 @@ public:
 
 	bool isUIEnabled() { return uiEnabled; }
 
-	GameImpl() : currentLevel(2), world() {
+	GameImpl() : currentLevel(0), world() {
 
 		menu = make_shared<Controller>(this);
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, (BUTTONW * 2) + 30, (BUTTONH + 10) * 8);
@@ -1531,8 +1540,6 @@ public:
 		assert (DNAModel::match(Peptide{ AA::STP }, Peptide{}));
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile }));
 		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile, AA::STP }));
-
-		cout << "Tests ok!" << endl;
 	}
 
 	virtual void init() override {
@@ -1794,6 +1801,8 @@ public:
 		currentScript = scripts[lev->scriptId].begin();
 		currentScriptEnd = scripts[lev->scriptId].end();
 
+//		PuzzleAnalyzer::analyze(*lev);
+
 		initLevel();
 		nextScriptStep();
 	}
@@ -1843,8 +1852,6 @@ public:
 
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
-
-//		PuzzleAnalyzer::analyze(*lev);
 
 		currentDNA.setValue(lev->startGene);
 
