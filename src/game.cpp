@@ -282,7 +282,7 @@ struct LevelInfo {
 	vector<MutationId> mutationCards;
 };
 
-const int NUM_LEVELS = 13;
+const int NUM_LEVELS = 12;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{  1, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
