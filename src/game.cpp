@@ -1502,6 +1502,10 @@ public:
 			.layout(Layout::RIGHT_BOTTOM_W_H, 140, 10, 120, 24).get();
 		add(b2);
 
+		auto b3 = Button::build([=](){ pushMsg(Engine::E_QUIT); }, "Quit")
+			.layout(Layout::LEFT_BOTTOM_W_H, 10, 10, 120, 24).get();
+		add(b3);
+
 		Resources *res = Engine::getResources();
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
 		add(img1);
