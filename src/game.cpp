@@ -51,7 +51,7 @@ AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
 	{ 'L', "Leu", "Leucine",       {"CTT", "CTC", "CTA", "CTG", "TTA", "TTG"} },
 	{ 'K', "Lys", "Lysine",        {"AAA", "AAG"} },
 	{ 'M', "Met", "Methionine",    {"ATG"} },
-	{ 'F', "Phe", "Phenylalan.", {"TTT", "TTC"} },
+	{ 'F', "Phe", "Phenylalan.",   {"TTT", "TTC"} },
 	{ 'P', "Pro", "Proline",       {"CCT", "CCC", "CCA", "CCG"} },
 	{ 'S', "Ser", "Serine",        {"TCT", "TCC", "TCA", "TCG", "AGT", "AGC"} },
 	{ 'T', "Thr", "Threonine",     {"ACT", "ACC", "ACA", "ACG"} },
@@ -65,7 +65,12 @@ enum class MutationId {
 	TRANSVERSION, // transversion:  G<->T   A<->C
 	TRANSITION, // transition:    G<->A   T<->C
 	COMPLEMENT, // complement:    G<->C   A<->T
-	REVERSE_COMPLEMENT, INSERTION_A, INSERTION_C, INSERTION_T, INSERTION_G, DELETION,
+	REVERSE_COMPLEMENT,
+	INSERTION_A,
+	INSERTION_C,
+	INSERTION_T,
+	INSERTION_G,
+	DELETION,
 };
 
 struct MutationInfo {
@@ -104,7 +109,9 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 using Peptide = vector<AA>;
 using OligoNt = string;
 
-enum class Cmd { SAY, BIGEYES, NORMALEYES, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION };
+enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL };
+enum class Cmd { SAY, BIGEYES, NORMALEYES, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION,
+		WAIT_FOR_KEY, WAIT_FOR_MUTATION_SELECTED, WHEN_MATCH };
 
 struct Statement {
 	Cmd cmd;
@@ -121,32 +128,46 @@ Script scripts[NUM_SCRIPTS] = {
 	}, {
 		// 1
 		{ Cmd::SAY, "Ok, let's have a look at our patient." },
-		{ Cmd::SAY, "Ah yes, I see. The patient needs an antibiotic,\nadministered directly in the cells.\n" },
-		{ Cmd::SAY, "With a targeted gene mutation,\nthe patient will produce the antibiotic by itself.\n"
-				"We'll use our silly mutation weapon here to mutate the patient.\n"
+		{ Cmd::SAY, "Ah yes, I see. The patient needs an antibiotic.\n" },
+		{ Cmd::SAY, "With our mutation ray here,\nwe can generate the antibiotic directly inside the patients body.\n"
 				"Don't worry, this won't hurt a bit.\nI mean, this probably won't hurt.\n" },
 		{ Cmd::BIGEYES, "" },
 		{ Cmd::SAY, "OK, this might hurt a little." },
 		{ Cmd::NORMALEYES, "" },
+		{ Cmd::ACTIVATE_GENE, "" },
+		{ Cmd::SAY, "Let's look at the genes of the patient.\n"
+				"Genes are made up of four letters,\n"
+				"A (Green), C (Blue), T (Red), G (Grey)\n"
+				"This patient currently has the gene: T, G, T\n"
+				"Or: Red, Grey, Red.\n" },
 		{ Cmd::ACTIVATE_TARGET, "" },
-		{ Cmd::SAY, "The antibiotic we need is just a single amino acid: Tryptophan.\n"
-					"To produce it, we need a three-letter genetic code of TGG.\n"
-					"Look at the symbols on the tryptophan card,\nto see which genetic code it needs." },
-		{ Cmd::SAY, "We need TGG to produce Tryptophan, This gene looks almost right.\n"
-				"It is TGT, producing Cysteine.\n"
-				"We just need one mutation.\n"
-				"Use the cursor keys and enter to activate a card.\n"
+		{ Cmd::SAY, "The antibiotic we need is called Tryptophan.\n"
+				"Each combination of three letters produces something.\n" },
+		{ Cmd::ACTIVATE_TRANSLATION, "" },
+		{ Cmd::SAY,
+				"We need TGG to produce Tryptophan, What we have looks almost right.\n"
+				"It is TGT, producing Cysteine.\n" },
+		{ Cmd::SAY,
+				"We just need to mutate the last T to a G\n(or from Red to Grey).\n"
+				"Activate the mutation card with enter.\n"
 				"Move it over to the right spot and press enter to apply.\n"
 				}
 	}, { // 2
-		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "Let's try a different amino acid.\n"
-					"Glutamate, always goes nice with chinese food!\n" },
-		{ Cmd::SAY,	"A three-letter genetic code is also called a codon.\n"
-					"The genetic code is redundant.\n"
-					"Several possible codons produce the same amino acid."},
+		{ Cmd::ACTIVATE_TARGET, "" },
+		{ Cmd::SAY, "Our patient isn't fully healed yet.\n"
+					"Let's try a different cure.\n"
+					"Glutamate, in a triple dosis for good measure.\n"
+					"It always goes nice with chinese food!\n" },
+		{ Cmd::ACTIVATE_GENE, "" },
+		{ Cmd::SAY,	"Each group of three letters produces something.\n"
+					"We call these groups of three a 'codon'\n"
+					"Codons are redundant: several combinations\n"
+					"of letters produce the same result."},
 		{ Cmd::SAY, "For example, Glutamate corresponds to the codons GAG or GAA.\n"
-					"That's why there are two rows of symbols on the Glutamate card.\n"
+					"That's why there are two rows of symbols on the Glutamate card.\n" },
+		{ Cmd::ACTIVATE_TRANSLATION, "" },
+		{ Cmd::SAY, "The goal is to generate glutamate three times.\n"
+					"We're almost there. Only one letter is out of place.\n"
 					"Move the mutation card over to apply the mutation."},
 	}, { // 3
 		{ Cmd::ACTIVATE_ALL, "" },
@@ -447,7 +468,7 @@ const int NT_HEIGHT = 80;
 const int NT_SPACING = 8;
 const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 
-const int SECTION_X = 80;
+const int SECTION_X = 96;
 const int TARGET_PEPT_Y = 180;
 const int CURRENT_PEPT_Y = 280;
 const int GENE_Y = 380;
@@ -482,6 +503,7 @@ public:
 	bool isVisible() { return visible; }
 	void setAwake(bool value) { awake = value; }
 	bool isAwake() { return awake; }
+	void setVisible (bool value) { visible = value; }
 
 	virtual void draw(const GraphicsContext &gc) {
 		if (sprite) {
@@ -503,6 +525,21 @@ public:
 };
 
 class GameImpl;
+
+class TextSprite : public Sprite {
+private:
+	string text;
+	ALLEGRO_COLOR color;
+public:
+	TextSprite (double x, double y, string text, ALLEGRO_COLOR color) : text(text), color(color) {
+		this->x = x;
+		this->y = y;
+	}
+
+	void draw(const GraphicsContext &gc) override {
+		al_draw_text(font, color, x, y, 0, text.c_str());
+	}
+};
 
 class NucleotideSprite : public Sprite, public enable_shared_from_this<NucleotideSprite> {
 private:
@@ -1330,6 +1367,10 @@ public:
 
 	void initMutationCards(vector<MutationId> mutations) {
 
+		// clear any remainder from previous level...
+		for (auto i : cards) {
+			i->kill();
+		}
 		cards.clear();
 
 		int yco = gety();
@@ -1430,10 +1471,11 @@ public:
 private:
 
 	// positions in this vector should match the current DNAmodel...
-	vector<shared_ptr<NucleotideSprite>> geneGroup;
+	vector<shared_ptr<NucleotideSprite>> geneByPosition;
 
-	SpriteGroup targetPeptideGroup;
-	SpriteGroup currentPeptideGroup;
+	shared_ptr<SpriteGroup> geneGroup;
+	shared_ptr<SpriteGroup> targetPeptideGroup;
+	shared_ptr<SpriteGroup> currentPeptideGroup;
 
 	DNAModel currentDNA;
 	PeptideModel targetPeptide;
@@ -1453,11 +1495,34 @@ private:
 	Script::iterator currentScriptEnd;
 
 	bool uiEnabled = true;
+	Mode mode = Mode::SCRIPT_RUNNING;
 public:
 
 	bool isUIEnabled() { return uiEnabled; }
 
 	GameImpl() : currentLevel(0), world() {
+
+		targetPeptideGroup = make_shared<SpriteGroup>();
+		currentPeptideGroup = make_shared<SpriteGroup>();
+		geneGroup = make_shared<SpriteGroup>();
+
+		world.push_back(targetPeptideGroup);
+		world.push_back(currentPeptideGroup);
+		world.push_back(geneGroup);
+
+		ALLEGRO_FONT *builtin_font = Engine::getResources()->getFont("builtin_font");
+
+		add (
+			Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "Goal:").font(builtin_font).xy(10, TARGET_PEPT_Y).get()
+		);
+
+		add (
+			Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "Current\n  Output:").font(builtin_font).xy(10, CURRENT_PEPT_Y).get()
+		);
+
+		add (
+			Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "Gene:").font(builtin_font).xy(10, GENE_Y).get()
+		);
 
 		menu = make_shared<Controller>(this);
 		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, (BUTTONW * 2) + 30, (BUTTONH + 10) * 8);
@@ -1485,9 +1550,8 @@ public:
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
-
+			currentPeptideGroup->killAll();
 			generateRibosome();
-			currentPeptideGroup.killAll();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
@@ -1521,6 +1585,30 @@ public:
 
 	}
 
+	void activateTargetPeptide() {
+		targetPeptideGroup->setVisible(true);
+	}
+
+	void activateCurrentPeptide() {
+		currentPeptideGroup->setVisible(true);
+	}
+
+	void activateGene() {
+		geneGroup->setVisible(true);
+	}
+
+	void deactivateAll() {
+		targetPeptideGroup->setVisible(false);
+		currentPeptideGroup->setVisible(false);
+		geneGroup->setVisible(false);
+	}
+
+	void activateAll() {
+		targetPeptideGroup->setVisible(true);
+		currentPeptideGroup->setVisible(true);
+		geneGroup->setVisible(true);
+	}
+
 	void resetLevel() {
 		initLevel();
 	}
@@ -1552,7 +1640,7 @@ public:
 		CardRenderer::drawCards();
 	}
 
-	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, SpriteGroup &group, int ax, int ay, int pos) {
+	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay, int pos) {
 
 		int xco = ax;
 		int yco = ay;
@@ -1562,8 +1650,7 @@ public:
 		AA aaIdx = pep.at(pos);
 
 		auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
-		world.push_front(aaSprite);
-		group.push_back(aaSprite);
+		group->push_back(aaSprite);
 
 		return aaSprite;
 	}
@@ -1582,9 +1669,9 @@ public:
 		return currentPeptide.size();
 	}
 
-	void peptideToSprites(PeptideModel &pep, SpriteGroup &group, int ax, int ay) {
+	void peptideToSprites(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay) {
 
-		group.killAll();
+		group->killAll();
 
 		int xco = ax;
 		int yco = ay;
@@ -1605,35 +1692,35 @@ public:
 		ribo->nextAnimation();
 
 		checkWinCondition();
-		world.push_back(ribo);
+		currentPeptideGroup->push_back(ribo);
 	}
 
 	void generateGeneSprite(int pos) {
 		int xco = SECTION_X + NT_STEPSIZE * pos;
 		int yco = GENE_Y;
 
-		if ((int)geneGroup.size() <= pos) {
-			geneGroup.resize(pos + 1);
+		if ((int)geneByPosition.size() <= pos) {
+			geneByPosition.resize(pos + 1);
 		}
 
 		char nt = currentDNA.at(pos);
 
 		auto ntSprite = make_shared<NucleotideSprite>(this, xco, yco, nt, pos);
-		world.push_front(ntSprite); // insert below any dissolving sprites...
-		geneGroup[pos] = ntSprite;
+		geneGroup->push_front(ntSprite); // insert below any dissolving sprites...
+		geneByPosition[pos] = ntSprite;
 	}
 
 	void geneSpritesDelete(int pos) {
 
-		if (geneGroup[pos]) {
-			geneGroup[pos]->startDissolve();
+		if (geneByPosition[pos]) {
+			geneByPosition[pos]->startDissolve();
 		}
 
 		for (size_t i = pos; i < currentDNA.size(); ++i) {
-			geneGroup[i] = geneGroup[i+1];
-			geneGroup[i]->moveToPos(i);
+			geneByPosition[i] = geneByPosition[i+1];
+			geneByPosition[i]->moveToPos(i);
 		}
-		geneGroup[currentDNA.size()] = nullptr;
+		geneByPosition[currentDNA.size()] = nullptr;
 
 		generateGeneSprite(pos);
 		validateGeneSprites();
@@ -1641,13 +1728,13 @@ public:
 
 	void geneSpritesInsert(int pos) {
 
-		if (geneGroup.size() <= currentDNA.size()) {
-			geneGroup.resize(currentDNA.size());
+		if (geneByPosition.size() <= currentDNA.size()) {
+			geneByPosition.resize(currentDNA.size());
 		}
 
 		for (int i = currentDNA.size() - 1; i > pos; i --) {
-			geneGroup[i] = geneGroup[i-1];
-			geneGroup[i]->moveToPos(i);
+			geneByPosition[i] = geneByPosition[i-1];
+			geneByPosition[i]->moveToPos(i);
 		}
 
 		generateGeneSprite(pos);
@@ -1655,26 +1742,26 @@ public:
 	}
 
 	void mutateGene(int pos) {
-		if (geneGroup[pos]) {
-			geneGroup[pos]->startDissolve();
+		if (geneByPosition[pos]) {
+			geneByPosition[pos]->startDissolve();
 		}
 		generateGeneSprite(pos);
 		validateGeneSprites();
 	}
 
 	void validateGeneSprites() {
-		Assert(geneGroup.size() >= currentDNA.size(), "missing a gene sprite");
+		Assert(geneByPosition.size() >= currentDNA.size(), "missing a gene sprite");
 		for (size_t i = 0; i < currentDNA.size(); ++i) {
-			Assert (geneGroup[i], "Missing a gene sprite");
-			Assert (geneGroup[i]->validate(i, currentDNA.at(i)), "Gene sprite does not validate");
+			Assert (geneByPosition[i], "Missing a gene sprite");
+			Assert (geneByPosition[i]->validate(i, currentDNA.at(i)), "Gene sprite does not validate");
 		}
 	}
 
 	void generateGeneSprites() {
 
 		// clear all pre-existing nucleotides.
-		for (size_t i = 0; i < geneGroup.size(); ++i) {
-			if (geneGroup[i]) { geneGroup[i]->kill(); }
+		for (size_t i = 0; i < geneByPosition.size(); ++i) {
+			if (geneByPosition[i]) { geneByPosition[i]->kill(); }
 		}
 
 		// generate fresh ones
@@ -1808,9 +1895,11 @@ public:
 		currentScript = scripts[lev->scriptId].begin();
 		currentScriptEnd = scripts[lev->scriptId].end();
 
+		mode = Mode::SCRIPT_RUNNING;
 //		PuzzleAnalyzer::analyze(*lev);
 
 		initLevel();
+		deactivateAll();
 		nextScriptStep();
 	}
 
@@ -1818,9 +1907,7 @@ public:
 		drText->setText(text);
 		drText->startTypewriter(Text::LETTER_BY_LETTER, 2);
 		drText->onAnimationComplete([=] () {
-			add (Timer::build(100, [=]() {
-				nextScriptStep();
-			}).get());
+			mode = Mode::WAIT_FOR_KEY;
 		});
 	}
 
@@ -1830,6 +1917,7 @@ public:
 		{
 
 			if (currentScript == currentScriptEnd) {
+				mode = Mode::PLAYER_CONTROL;
 				break;
 			}
 				// execute step
@@ -1846,6 +1934,18 @@ public:
 				case Cmd::NORMALEYES:
 					patient->setState(0);
 					break;
+				case Cmd::ACTIVATE_ALL:
+					activateAll();
+					break;
+				case Cmd::ACTIVATE_TARGET:
+					activateTargetPeptide();
+					break;
+				case Cmd::ACTIVATE_TRANSLATION:
+					activateCurrentPeptide();
+					break;
+				case Cmd::ACTIVATE_GENE:
+					activateGene();
+					break;
 				default:
 					break;
 			}
@@ -1856,7 +1956,10 @@ public:
 	}
 
 	void initLevel() {
-		world.killAll();
+
+		targetPeptideGroup->killAll();
+		currentPeptideGroup->killAll();
+		geneGroup->killAll();
 
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
@@ -1932,22 +2035,34 @@ public:
 			}
 		}
 		else {
-			Container::handleEvent(event);
+			switch (mode) {
+			case Mode::PLAYER_CONTROL:
+				Container::handleEvent(event);
 
-			if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-				switch (event.keyboard.keycode) {
-					case ALLEGRO_KEY_F2:
-						showCodonTable();
-						break;
-					case ALLEGRO_KEY_F1:
-						resetLevel();
-						break;
-					case ALLEGRO_KEY_SPACE:
-						pauseScreen();
-						break;
+				if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+					switch (event.keyboard.keycode) {
+						case ALLEGRO_KEY_F2:
+							showCodonTable();
+							break;
+						case ALLEGRO_KEY_F1:
+							resetLevel();
+							break;
+						case ALLEGRO_KEY_SPACE:
+							pauseScreen();
+							break;
+					}
 				}
-			}
+				break;
+			case Mode::SCRIPT_RUNNING:
+				break;
+			case Mode::WAIT_FOR_KEY:
+				if (event.type == ALLEGRO_EVENT_KEY_CHAR ||
+					event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+					nextScriptStep();
+				}
+				break;
 
+			}
 		}
 	}
 
