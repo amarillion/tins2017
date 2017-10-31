@@ -1,3 +1,6 @@
+#include "molbi.h"
+#include "dissolve.h"
+
 #include <assert.h>
 
 #include "game.h"
@@ -24,90 +27,6 @@
 #include "mainloop.h"
 
 using namespace std;
-
-enum class AA {
-	Ala, Arg, Asn, Asp, Cys, Gln, Glu, Gly, His, Ile, Leu, Lys, Met, Phe, Pro, Ser, Thr, Trp, Tyr, Val, STP
-};
-
-struct AminoAcidInfo {
-	char code;
-	string threeLetterCode;
-	string fullName;
-	vector<string> codons;
-};
-
-const int NUM_AMINO_ACIDS = 21;
-AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
-	{ 'A', "Ala", "Alanine",       {"GCT", "GCC", "GCA", "GCG"} },
-	{ 'R', "Arg", "Argenine",      {"CGT", "CGC", "CGA", "CGG", "AGA", "AGG"} },
-	{ 'N', "Asn", "Asparagine",    {"AAT", "AAC"} },
-	{ 'D', "Asp", "Aspartate",     {"GAT", "GAC"} },
-	{ 'C', "Cys", "Cysteine",      {"TGT", "TGC"} },
-	{ 'Q', "Gln", "Glutamine",     {"CAA", "CAG"} },
-	{ 'E', "Glu", "Glutamate",     {"GAA", "GAG"} },
-	{ 'G', "Gly", "Glycine",       {"GGT", "GGC", "GGA", "GGG"} },
-	{ 'H', "His", "Histidine",     {"CAT", "CAC"} },
-	{ 'I', "Ile", "Isoleucine",    {"ATT", "ATC", "ATA"} },
-	{ 'L', "Leu", "Leucine",       {"CTT", "CTC", "CTA", "CTG", "TTA", "TTG"} },
-	{ 'K', "Lys", "Lysine",        {"AAA", "AAG"} },
-	{ 'M', "Met", "Methionine",    {"ATG"} },
-	{ 'F', "Phe", "Phenylalan.",   {"TTT", "TTC"} },
-	{ 'P', "Pro", "Proline",       {"CCT", "CCC", "CCA", "CCG"} },
-	{ 'S', "Ser", "Serine",        {"TCT", "TCC", "TCA", "TCG", "AGT", "AGC"} },
-	{ 'T', "Thr", "Threonine",     {"ACT", "ACC", "ACA", "ACG"} },
-	{ 'W', "Trp", "Tryptophan",    {"TGG"} },
-	{ 'Y', "Tyr", "Tyrosine",      {"TAT", "TAC"} },
-	{ 'V', "Val", "Valine",        {"GTT", "GTC", "GTA", "GTG"} },
-	{ '*', "***", "Stop",          {"TAA", "TAG", "TGA"} },
-};
-
-enum class MutationId {
-	TRANSVERSION, // transversion:  G<->T   A<->C
-	TRANSITION, // transition:    G<->A   T<->C
-	COMPLEMENT, // complement:    G<->C   A<->T
-	REVERSE_COMPLEMENT,
-	INSERTION_A,
-	INSERTION_C,
-	INSERTION_T,
-	INSERTION_G,
-	DELETION,
-};
-
-struct MutationInfo {
-	string name;
-};
-
-const int NUM_MUTATIONS = 9;
-MutationInfo mutationInfo[NUM_MUTATIONS] {
-	{ "TRANSVERSION" },
-	{ "TRANSITION" },
-	{ "COMPLEMENT" },
-	{ "REVERSE COMPLEMENT" },
-	{ "INSERT A" },
-	{ "INSERT C" },
-	{ "INSERT T" },
-	{ "INSERT_G" },
-	{ "DELETION" }
-};
-
-const int NUM_NUCLEOTIDES = 4;
-struct NucleotideInfo {
-	char code;
-	string name;
-	ALLEGRO_BITMAP *card;
-};
-
-enum class NT { T, C, A, G };
-
-NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
-	{ 'T', "Tyrosine", nullptr },
-	{ 'C', "Cytosine", nullptr },
-	{ 'A', "Adenine", nullptr },
-	{ 'G', "Guanosine", nullptr }
-};
-
-using Peptide = vector<AA>;
-using OligoNt = string;
 
 enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL };
 enum class Cmd { SAY, BIGEYES, NORMALEYES, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION,
@@ -208,92 +127,6 @@ Script scripts[NUM_SCRIPTS] = {
 	}
 };
 
-class DissolveEffect {
-
-private:
-	ALLEGRO_SHADER *shader;
-
-public:
-	DissolveEffect()
-	{
-		shader = al_create_shader(ALLEGRO_SHADER_AUTO);
-		assert(shader);
-/*
-		const char *checker_vertex_shader_src =
-			"attribute vec4 al_pos;"
-			"uniform mat4 al_projview_matrix;"
-			"void main()"
-			"{"
-			"	gl_Position = al_projview_matrix * al_pos;"
-			"}";
-*/
-		const char *checker_pixel_shader_src =
-
-			"#version 130\n"
-			"uniform float uTime;"
-			"uniform sampler2D al_tex;\n"
-			"uniform bool al_use_tex;\n"
-			"varying vec4 varying_color;\n"
-			"varying vec2 varying_texcoord;\n"
-
-			"void main(void)"
-			"{"
-			"	vec2 st = gl_FragCoord.xy;"
-			"	vec3 color = vec3(0.0);"
-			"	float checkSize = 3.0;"
-			"	st /= checkSize;"
-			"	float step = 20.0;"
-			"	float cellNo = mod(floor(st.x), 8.0) + 8.0 * mod(floor(st.y), 8.0);"
-			"	float fmodResult = mod (floor(cellNo / step) + mod(cellNo, step) * step, 64.0);"
-			"	if (fmodResult / 64.0 < uTime) {"
-			"		discard;"
-			"	}"
-			"	if ( al_use_tex )\n"
-			"		gl_FragColor = varying_color * texture2D( al_tex , varying_texcoord);\n"
-			"	else\n"
-			"		gl_FragColor = varying_color;\n"
-			"}";
-
-		bool ok;
-
-		ok = al_attach_shader_source(shader, ALLEGRO_PIXEL_SHADER, checker_pixel_shader_src);
-		//TODO: assert with message format...
-		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
-		assert(ok);
-
-		ok = al_attach_shader_source(shader, ALLEGRO_VERTEX_SHADER,
-				al_get_default_shader_source(ALLEGRO_SHADER_GLSL, ALLEGRO_VERTEX_SHADER));
-
-		//TODO: assert with message format...
-		if (!ok) printf ("al_attach_shader_source failed: %s\n", al_get_shader_log(shader));
-		assert(ok);
-
-		ok = al_build_shader(shader);
-		//TODO: assert with message...
-		if (!ok) printf ("al_build_shader failed: %s\n", al_get_shader_log(shader));
-		assert(ok);
-	}
-
-	void withPattern(float time, function<void()> closure)
-	{
-		enable(time);
-		closure();
-		disable();
-	}
-
-	void enable(float time) {
-		al_use_shader(shader);
-		al_set_shader_float("uTime", time);
-	}
-
-
-	void disable() {
-		al_use_shader(NULL);
-	}
-
-	ALLEGRO_SHADER *getShader() { return shader; }
-};
-
 struct LevelInfo {
 	int scriptId; // -1 for none
 	Peptide targetPeptide;
@@ -342,19 +175,6 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 };
 
-NT getNucleotideIndex(char c) {
-	switch(c) {
-	//TODO: use reverse lookup of NucleotideInfo instead of hard-coding order...
-	case 'T': return NT::T;
-	case 'C': return NT::C;
-	case 'A': return NT::A;
-	case 'G': return NT::G;
-	default: Assert (false, "Not a valid nucleotide character");
-		return NT::A; //DUMMY value
-	break;
-	}
-}
-
 ALLEGRO_COLOR getNucleotideColor(NT idx, float shade) {
 	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
 	Assert ((int)idx >= 0 && (int)idx < NUM_NUCLEOTIDES, "idx is not in range");
@@ -367,60 +187,6 @@ ALLEGRO_COLOR getNucleotideColor(NT idx, float shade) {
 	default: return BLACK;
 	}
 }
-
-class CodonTable {
-private:
-	vector<AA> codonTable;
-	map<string, AA> aaIndexByThreeLetterCode;
-public:
-	CodonTable() {
-
-		codonTable.resize(64);
-		for (int i = 0; i < NUM_AMINO_ACIDS; ++i) {
-			AA aa = static_cast<AA>(i);
-			auto aaInfo = &aminoAcidInfo[i];
-			for (auto codon : aaInfo->codons) {
-				int codonIdx = codonIndexFromString(codon);
-				codonTable[codonIdx] = aa;
-			}
-
-			aaIndexByThreeLetterCode[aaInfo->threeLetterCode] = aa;
-		}
-
-	}
-
-	int getCodonIndex(int i, int j, int k) {
-		Assert (i >= 0 && i < NUM_NUCLEOTIDES, "Invalid nucleotide");
-		Assert (j >= 0 && j < NUM_NUCLEOTIDES, "Invalid nucleotide");
-		Assert (k >= 0 && k < NUM_NUCLEOTIDES, "Invalid nucleotide");
-
-		return i + j * NUM_NUCLEOTIDES + k * NUM_NUCLEOTIDES * NUM_NUCLEOTIDES;
-	};
-
-	/** Converts "ATG" to the index of the corresponding amino acid */
-	int codonIndexFromString(const string &val) {
-		Assert (val.size() == 3, "Not a valid codon string");
-
-		return getCodonIndex(
-			(int)getNucleotideIndex(val.at(0)),
-			(int)getNucleotideIndex(val.at(1)),
-			(int)getNucleotideIndex(val.at(2))
-		);
-	}
-
-	AA getCodon(int i, int j, int k) {
-		int idx = getCodonIndex(i, j, k);
-		return codonTable[idx];
-	}
-
-	AA getIndexByThreeLetterCode(const string &threeLetterCode) {
-		Assert (threeLetterCode.size() == 3, "Three letter code must have three letters");
-		Assert (aaIndexByThreeLetterCode.find(threeLetterCode) != aaIndexByThreeLetterCode.end(), "Unknown three-letter code");
-		return aaIndexByThreeLetterCode[threeLetterCode];
-	}
-};
-
-CodonTable codonTable;
 
 class CodonTableView : public IComponent {
 
@@ -544,7 +310,7 @@ public:
 class NucleotideSprite : public Sprite, public enable_shared_from_this<NucleotideSprite> {
 private:
 	GameImpl *parent;
-	NucleotideInfo *info;
+	const NucleotideInfo *info;
 	char code;
 	int pos;
 	NT idx;
@@ -639,7 +405,7 @@ class CardRenderer {
 		ALLEGRO_BITMAP *result = al_create_bitmap (NT_WIDTH, NT_HEIGHT);
 		Assert(result, "couldn't create a bitmap");
 
-		NucleotideInfo *info = &nucleotideInfo[idx];
+		const NucleotideInfo *info = &nucleotideInfo[idx];
 
 		ALLEGRO_COLOR mainColor = getNucleotideColor((NT)idx, 0.5);
 		ALLEGRO_COLOR shadeColor = getNucleotideColor((NT)idx, 1.0);
@@ -716,7 +482,7 @@ class DissolveAnimator : public Sprite {
 
 class AminoAcidSprite : public Sprite {
 private:
-	AminoAcidInfo *info;
+	const AminoAcidInfo *info;
 	AA aaIdx;
 public:
 	AminoAcidSprite(double x, double y, AA aaIdx) : aaIdx(aaIdx) {
@@ -1255,7 +1021,7 @@ public:
 class MutationCardSprite : public Sprite {
 
 	MutationId mutationId;
-	MutationInfo *info;
+	const MutationInfo *info;
 	bool focus = false;
 	int counter = 0;
 public:

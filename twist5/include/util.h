@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <assert.h>
 
 struct ALLEGRO_CONFIG;
 
@@ -73,4 +74,5 @@ void log(const char* msg, ...);
 
 
 #define Assert(cond, msg) assert((cond) && (msg))
+
 #endif
