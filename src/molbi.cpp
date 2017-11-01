@@ -1,5 +1,6 @@
 #include "molbi.h"
 #include "util.h"
+#include "color.h"
 
 NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 	{ 'T', "Tyrosine", nullptr },
@@ -48,6 +49,20 @@ AA CodonTable::getIndexByThreeLetterCode(const std::string &threeLetterCode) {
 	Assert (threeLetterCode.size() == 3, "Three letter code must have three letters");
 	Assert (aaIndexByThreeLetterCode.find(threeLetterCode) != aaIndexByThreeLetterCode.end(), "Unknown three-letter code");
 	return aaIndexByThreeLetterCode[threeLetterCode];
+}
+
+
+ALLEGRO_COLOR getNucleotideColor(NT idx, float shade) {
+	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
+	Assert ((int)idx >= 0 && (int)idx < NUM_NUCLEOTIDES, "idx is not in range");
+
+	switch (idx) {
+	case NT::T: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
+	case NT::C: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
+	case NT::A: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
+	case NT::G: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
+	default: return BLACK;
+	}
 }
 
 CodonTable codonTable;

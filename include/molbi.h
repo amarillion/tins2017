@@ -4,9 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
-
-// forward declaration
-struct ALLEGRO_BITMAP;
+#include <allegro5/allegro.h>
 
 enum class AA {
 	Ala, Arg, Asn, Asp, Cys, Gln, Glu, Gly, His, Ile, Leu, Lys, Met, Phe, Pro, Ser, Thr, Trp, Tyr, Val, STP
@@ -122,6 +120,8 @@ public:
 
 	AA getIndexByThreeLetterCode(const std::string &threeLetterCode);
 };
+
+ALLEGRO_COLOR getNucleotideColor(NT idx, float shade);
 
 extern CodonTable codonTable;
 

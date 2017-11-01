@@ -26,6 +26,8 @@
 
 #include "mainloop.h"
 #include "sprite.h"
+#include "cardrenderer.h"
+#include "layout_const.h"
 
 using namespace std;
 
@@ -176,19 +178,6 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 };
 
-ALLEGRO_COLOR getNucleotideColor(NT idx, float shade) {
-	Assert (shade >= 0 && shade <= 1.0, "shade is not in range");
-	Assert ((int)idx >= 0 && (int)idx < NUM_NUCLEOTIDES, "idx is not in range");
-
-	switch (idx) {
-	case NT::T: return al_map_rgb_f(shade * 1.0, 0.0, 0.0); // T -> RED
-	case NT::C: return al_map_rgb_f(0.0, 0.0, shade * 1.0); // C -> BLUE
-	case NT::A: return al_map_rgb_f(0.0, 1.0 * shade, 0.0); // A -> GREEN
-	case NT::G: return al_map_rgb_f(0.5 * shade, 0.5 * shade, 0.5 * shade); // G -> BLACK(or grey)
-	default: return BLACK;
-	}
-}
-
 class CodonTableView : public IComponent {
 
 	virtual void draw(const GraphicsContext &gc) override {
@@ -221,32 +210,6 @@ class CodonTableView : public IComponent {
 	};
 
 };
-
-// generic Layout variables
-const int AA_WIDTH = 96;
-const int AA_SPACING = 16; // between AA cards
-const int AA_HEIGHT = 64;
-const int AA_STEPSIZE = AA_WIDTH + AA_SPACING;
-
-const int AA_PADDING = 8; // padding on inside of AA card.
-
-const int NT_WIDTH = 30;
-const int NT_HEIGHT = 80;
-const int NT_SPACING = 8;
-const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
-
-const int SECTION_X = 96;
-const int TARGET_PEPT_Y = 180;
-const int CURRENT_PEPT_Y = 280;
-const int GENE_Y = 380;
-const int RIBOSOME_Y = GENE_Y - 50;
-const int CURSOR_Y = 460;
-
-const int BUTTONW = 120;
-const int BUTTONH = 16;
-
-const int MUTCARD_W = 120;
-const int MUTCARD_H = 40;
 
 class GameImpl;
 
@@ -323,78 +286,6 @@ public:
 	bool validate(int _pos, char _code) {
 		return (pos == _pos) && (code == _code);
 	}
-};
-
-void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
-	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
-	al_draw_rectangle(x1 + 1, y1 + 1, x2, y2, outer, w);
-}
-
-class CardRenderer {
-
-	Resources *res;
-	ALLEGRO_FONT *font;
-
-	CardRenderer() {
-		res = Engine::getResources();
-		font = res->getFont("builtin_font");
-	}
-
-	void drawRibosome() {
-		int w = AA_WIDTH + 20;
-		int h = 80;
-
-		ALLEGRO_BITMAP *result = al_create_bitmap (w, h);
-		al_set_target_bitmap(result);
-		al_clear_to_color(MAGIC_PINK);
-
-		al_draw_filled_rounded_rectangle(0, 0, w, h, 15, 15, GREY);
-
-		al_set_blender(ALLEGRO_ADD, ALLEGRO_ONE, ALLEGRO_ZERO);
-		al_draw_filled_rectangle(10, 50, w-10, h-10, MAGIC_PINK);
-		al_set_blender (ALLEGRO_ADD, ALLEGRO_ONE, ALLEGRO_INVERSE_ALPHA);
-
-		draw_shaded_text(font, WHITE, GREY, 5, 10, ALLEGRO_ALIGN_LEFT, "RIBOSOME");
-
-		res->putBitmap("RIBOSOME", result);
-	}
-
-	ALLEGRO_BITMAP *drawNucleotideCard(int idx) {
-		ALLEGRO_BITMAP *result = al_create_bitmap (NT_WIDTH, NT_HEIGHT);
-		Assert(result, "couldn't create a bitmap");
-
-		const NucleotideInfo *info = &nucleotideInfo[idx];
-
-		ALLEGRO_COLOR mainColor = getNucleotideColor((NT)idx, 0.5);
-		ALLEGRO_COLOR shadeColor = getNucleotideColor((NT)idx, 1.0);
-
-		al_set_target_bitmap(result);
-		drawOutlinedRect(0, 0, NT_WIDTH, NT_HEIGHT, mainColor, shadeColor, 1.0);
-
-		draw_shaded_textf(font, WHITE, GREY, 5, 5, ALLEGRO_ALIGN_LEFT, "%c", info->code);
-
-		return result;
-	}
-
-	void drawNucleotideCards() {
-		for (int i = 0; i < NUM_NUCLEOTIDES; ++i) {
-			ALLEGRO_BITMAP *bmp = drawNucleotideCard(i);
-			stringstream ss;
-			ss << "NUCLEOTIDE_" << i;
-			res->putBitmap(ss.str(), bmp);
-			NucleotideInfo *info = &nucleotideInfo[i];
-			info->card = bmp;
-		}
-
-	}
-
-public:
-	static void drawCards() {
-		CardRenderer renderer;
-		renderer.drawNucleotideCards();
-		renderer.drawRibosome();
-	}
-
 };
 
 //TODO - implement
@@ -1268,7 +1159,7 @@ public:
 
 	virtual void init() override {
 		test();
-		CardRenderer::drawCards();
+		renderCards();
 	}
 
 	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay, int pos) {
