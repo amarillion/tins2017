@@ -15,32 +15,12 @@ struct AminoAcidInfo {
 	std::string threeLetterCode;
 	std::string fullName;
 	std::vector<std::string> codons;
+	ALLEGRO_BITMAP *bmpFull;
+	ALLEGRO_BITMAP *bmpSimple;
 };
 
 const int NUM_AMINO_ACIDS = 21;
-const AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
-	{ 'A', "Ala", "Alanine",       {"GCT", "GCC", "GCA", "GCG"} },
-	{ 'R', "Arg", "Argenine",      {"CGT", "CGC", "CGA", "CGG", "AGA", "AGG"} },
-	{ 'N', "Asn", "Asparagine",    {"AAT", "AAC"} },
-	{ 'D', "Asp", "Aspartate",     {"GAT", "GAC"} },
-	{ 'C', "Cys", "Cysteine",      {"TGT", "TGC"} },
-	{ 'Q', "Gln", "Glutamine",     {"CAA", "CAG"} },
-	{ 'E', "Glu", "Glutamate",     {"GAA", "GAG"} },
-	{ 'G', "Gly", "Glycine",       {"GGT", "GGC", "GGA", "GGG"} },
-	{ 'H', "His", "Histidine",     {"CAT", "CAC"} },
-	{ 'I', "Ile", "Isoleucine",    {"ATT", "ATC", "ATA"} },
-	{ 'L', "Leu", "Leucine",       {"CTT", "CTC", "CTA", "CTG", "TTA", "TTG"} },
-	{ 'K', "Lys", "Lysine",        {"AAA", "AAG"} },
-	{ 'M', "Met", "Methionine",    {"ATG"} },
-	{ 'F', "Phe", "Phenylalan.",   {"TTT", "TTC"} },
-	{ 'P', "Pro", "Proline",       {"CCT", "CCC", "CCA", "CCG"} },
-	{ 'S', "Ser", "Serine",        {"TCT", "TCC", "TCA", "TCG", "AGT", "AGC"} },
-	{ 'T', "Thr", "Threonine",     {"ACT", "ACC", "ACA", "ACG"} },
-	{ 'W', "Trp", "Tryptophan",    {"TGG"} },
-	{ 'Y', "Tyr", "Tyrosine",      {"TAT", "TAC"} },
-	{ 'V', "Val", "Valine",        {"GTT", "GTC", "GTA", "GTG"} },
-	{ '*', "***", "Stop",          {"TAA", "TAG", "TGA"} },
-};
+extern AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS];
 
 enum class MutationId {
 	TRANSVERSION, // transversion:  G<->T   A<->C

@@ -300,7 +300,7 @@ private:
 	const AminoAcidInfo *info;
 	AA aaIdx;
 public:
-	AminoAcidSprite(double x, double y, AA aaIdx) : aaIdx(aaIdx) {
+	AminoAcidSprite(double x, double y, AA aaIdx, bool full) : aaIdx(aaIdx) {
 
 		this->x = x;
 		this->y = y;
@@ -308,42 +308,14 @@ public:
 		h = AA_HEIGHT;
 		Assert ((int)aaIdx >= 0 && (int)aaIdx < NUM_AMINO_ACIDS, "Invalid amino acid index");
 		info = &aminoAcidInfo[static_cast<int>(aaIdx)];
-	}
 
-	virtual void draw(const GraphicsContext &gc) {
-		double x1 = x + gc.xofst;
-		double y1 = y + gc.yofst;
-
-		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0.5, 0, 0));
-		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
-
-		draw_shaded_textf(font, WHITE, GREY, x1 + AA_PADDING, y1 + AA_PADDING, ALLEGRO_ALIGN_LEFT, info->fullName.c_str());
-
-		// draw the DNA target sequences...
-
-		int yco = y1 + 20;
-		const int INTERNAL_SPACING = 4;
-		const int INTERNAL_WIDTH = (AA_WIDTH - (2 * AA_PADDING) - (2 * INTERNAL_SPACING)) / 3;
-		const int INTERNAL_STEPSIZE = INTERNAL_WIDTH + INTERNAL_SPACING;
-		const int INTERNAL_HEIGHT = 5;
-		const int INTERNAL_VERTICAL_STEPSIZE = INTERNAL_HEIGHT + 2;
-
-		for (auto codon : info->codons) {
-			for (int c = 0; c < 3; ++c) {
-
-				int xco = x1 + c * INTERNAL_STEPSIZE + AA_PADDING;
-
-				char nt = codon.at(c);
-				NT ntIdx = getNucleotideIndex(nt);
-				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
-				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
-
-				al_draw_filled_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, shadeCol);
-				al_draw_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, mainCol, 1.0);
-			}
-			yco += INTERNAL_VERTICAL_STEPSIZE;
+		if (full) {
+			sprite = info->bmpFull;
 		}
-	};
+		else {
+			sprite = info->bmpSimple;
+		}
+	}
 
 };
 
@@ -1077,7 +1049,7 @@ public:
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
-			peptideToSprites(targetPeptide, targetPeptideGroup, SECTION_X, TARGET_PEPT_Y);
+			peptideToSprites(targetPeptide, targetPeptideGroup, SECTION_X, TARGET_PEPT_Y, true);
 		});
 
 		auto button = Button::build([=](){ resetLevel(); }, "Reset (F1)")
@@ -1162,7 +1134,7 @@ public:
 		renderCards();
 	}
 
-	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay, int pos) {
+	shared_ptr<AminoAcidSprite> peptideToSprite(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay, int pos, bool full) {
 
 		int xco = ax;
 		int yco = ay;
@@ -1171,7 +1143,7 @@ public:
 
 		AA aaIdx = pep.at(pos);
 
-		auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx);
+		auto aaSprite = make_shared<AminoAcidSprite>(xco, yco, aaIdx, full);
 		group->push_back(aaSprite);
 
 		return aaSprite;
@@ -1183,7 +1155,7 @@ public:
 		xco += AA_SPACING / 2;
 		xco += pos * AA_STEPSIZE;
 
-		auto aa = peptideToSprite(currentPeptide, currentPeptideGroup, SECTION_X, RIBOSOME_Y, pos);
+		auto aa = peptideToSprite(currentPeptide, currentPeptideGroup, SECTION_X, RIBOSOME_Y, pos, false);
 		world.move(aa, xco, yco, 40);
 	}
 
@@ -1191,7 +1163,7 @@ public:
 		return currentPeptide.size();
 	}
 
-	void peptideToSprites(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay) {
+	void peptideToSprites(PeptideModel &pep, shared_ptr<SpriteGroup> &group, int ax, int ay, bool full) {
 
 		group->killAll();
 
@@ -1201,7 +1173,7 @@ public:
 		xco += AA_SPACING / 2;
 
 		for (size_t i = 0; i < pep.size(); ++i) {
-			peptideToSprite(pep, group, ax, ay, i);
+			peptideToSprite(pep, group, ax, ay, i, full);
 		}
 	}
 

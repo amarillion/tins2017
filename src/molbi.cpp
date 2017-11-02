@@ -9,6 +9,29 @@ NucleotideInfo nucleotideInfo[NUM_NUCLEOTIDES] = {
 	{ 'G', "Guanosine", nullptr }
 };
 
+AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
+	{ 'A', "Ala", "Alanine",       {"GCT", "GCC", "GCA", "GCG"}, nullptr, nullptr },
+	{ 'R', "Arg", "Argenine",      {"CGT", "CGC", "CGA", "CGG", "AGA", "AGG"}, nullptr, nullptr },
+	{ 'N', "Asn", "Asparagine",    {"AAT", "AAC"}, nullptr, nullptr },
+	{ 'D', "Asp", "Aspartate",     {"GAT", "GAC"}, nullptr, nullptr },
+	{ 'C', "Cys", "Cysteine",      {"TGT", "TGC"}, nullptr, nullptr },
+	{ 'Q', "Gln", "Glutamine",     {"CAA", "CAG"}, nullptr, nullptr },
+	{ 'E', "Glu", "Glutamate",     {"GAA", "GAG"}, nullptr, nullptr },
+	{ 'G', "Gly", "Glycine",       {"GGT", "GGC", "GGA", "GGG"}, nullptr, nullptr },
+	{ 'H', "His", "Histidine",     {"CAT", "CAC"}, nullptr, nullptr },
+	{ 'I', "Ile", "Isoleucine",    {"ATT", "ATC", "ATA"}, nullptr, nullptr },
+	{ 'L', "Leu", "Leucine",       {"CTT", "CTC", "CTA", "CTG", "TTA", "TTG"}, nullptr, nullptr },
+	{ 'K', "Lys", "Lysine",        {"AAA", "AAG"}, nullptr, nullptr },
+	{ 'M', "Met", "Methionine",    {"ATG"}, nullptr, nullptr },
+	{ 'F', "Phe", "Phenylalan.",   {"TTT", "TTC"}, nullptr, nullptr },
+	{ 'P', "Pro", "Proline",       {"CCT", "CCC", "CCA", "CCG"}, nullptr, nullptr },
+	{ 'S', "Ser", "Serine",        {"TCT", "TCC", "TCA", "TCG", "AGT", "AGC"}, nullptr, nullptr },
+	{ 'T', "Thr", "Threonine",     {"ACT", "ACC", "ACA", "ACG"}, nullptr, nullptr },
+	{ 'W', "Trp", "Tryptophan",    {"TGG"}, nullptr, nullptr },
+	{ 'Y', "Tyr", "Tyrosine",      {"TAT", "TAC"}, nullptr, nullptr },
+	{ 'V', "Val", "Valine",        {"GTT", "GTC", "GTA", "GTG"}, nullptr, nullptr },
+	{ '*', "***", "Stop",          {"TAA", "TAG", "TGA"}, nullptr, nullptr }
+};
 
 NT getNucleotideIndex(char c) {
 	switch(c) {
