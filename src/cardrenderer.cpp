@@ -14,7 +14,7 @@ using namespace std;
 
 void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEGRO_COLOR inner, float w) {
 	al_draw_filled_rectangle(x1, y1, x2, y2, inner);
-	al_draw_rectangle(x1 + 1, y1 + 1, x2, y2, outer, w);
+	al_draw_rectangle(x1 + 1, y1, x2, y2 - 1, outer, w);
 }
 
 class CardRenderer {
@@ -77,12 +77,12 @@ public:
 	}
 
 	void drawCodons(AminoAcidInfo *info, double x1, double y1) {
-		int yco = y1 + 20;
+		int yco = y1 + 16;
 		const int INTERNAL_SPACING = 4;
 		const int INTERNAL_WIDTH = (AA_WIDTH - (2 * AA_PADDING) - (2 * INTERNAL_SPACING)) / 3;
 		const int INTERNAL_STEPSIZE = INTERNAL_WIDTH + INTERNAL_SPACING;
-		const int INTERNAL_HEIGHT = 5;
-		const int INTERNAL_VERTICAL_STEPSIZE = INTERNAL_HEIGHT + 2;
+		const int INTERNAL_HEIGHT = 10;
+		const int INTERNAL_VERTICAL_STEPSIZE = INTERNAL_HEIGHT + 1;
 
 		for (auto codon : info->codons) {
 			for (int c = 0; c < 3; ++c) {
@@ -94,8 +94,9 @@ public:
 				ALLEGRO_COLOR mainCol = getNucleotideColor(ntIdx, 1.0);
 				ALLEGRO_COLOR shadeCol = getNucleotideColor(ntIdx, 0.5);
 
-				al_draw_filled_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, shadeCol);
-				al_draw_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, mainCol, 1.0);
+				al_draw_filled_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, mainCol);
+				al_draw_rectangle(xco, yco, xco + INTERNAL_WIDTH, yco + INTERNAL_HEIGHT, shadeCol, 1.0);
+				al_draw_textf(font, WHITE, xco + (INTERNAL_WIDTH / 2), yco + 2, ALLEGRO_ALIGN_CENTER, "%c", nt);
 			}
 			yco += INTERNAL_VERTICAL_STEPSIZE;
 		}
@@ -111,8 +112,7 @@ public:
 		ALLEGRO_BITMAP *result = al_create_bitmap (w, h);
 		al_set_target_bitmap(result);
 
-		al_draw_filled_rectangle(x1, y1, x1 + w, y1 + h, al_map_rgb_f(0.5, 0, 0));
-		al_draw_rectangle(x1, y1, x1 + w, y1 + h, RED, 1.0);
+		drawOutlinedRect(x1, y1, x1 + w, y1 + h, LIGHT_BLUE, al_map_rgb_f(0.25, 0.25, 0.5), 1.0);
 
 		draw_shaded_textf(font, WHITE, GREY, x1 + AA_PADDING, y1 + AA_PADDING, ALLEGRO_ALIGN_LEFT, info->fullName.c_str());
 

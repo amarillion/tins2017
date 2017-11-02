@@ -4,10 +4,10 @@
 // generic Layout variables
 const int AA_WIDTH = 96;
 const int AA_SPACING = 16; // between AA cards
-const int AA_HEIGHT = 64;
+const int AA_HEIGHT = 88;
 const int AA_STEPSIZE = AA_WIDTH + AA_SPACING;
 
-const int AA_PADDING = 8; // padding on inside of AA card.
+const int AA_PADDING = 4; // padding on inside of AA card.
 
 const int NT_WIDTH = 30;
 const int NT_HEIGHT = 80;
