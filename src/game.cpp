@@ -288,6 +288,31 @@ public:
 	}
 };
 
+// TODO: add to TextComponent...
+class TextCursorComponent : public IComponent {
+
+	int counter = 0;
+public:
+	void update() override {
+		counter++;
+	}
+
+	void draw(const GraphicsContext &gc) override {
+		int w = getw();
+		int h = geth();
+		double x = getx() + gc.xofst;
+		double y = gety() + gc.yofst;
+
+		const int INSET = 4;
+		if (counter % 50 < 25) {
+			al_draw_filled_rectangle(x, y, x + w, y + h, GREY);
+		}
+		else {
+			al_draw_filled_rectangle(x + INSET, y + INSET, x + w - INSET, y + h - INSET, GREY);
+		}
+	}
+};
+
 //TODO - implement
 class DissolveAnimator : public Sprite {
 	DissolveAnimator (const shared_ptr<Sprite> &target) {
@@ -982,6 +1007,7 @@ private:
 
 	shared_ptr<Container> popup;
 	shared_ptr<AnimComponent> patient;
+	shared_ptr<TextCursorComponent> cursor;
 
 	ActionFunc popupAction;
 
@@ -1077,6 +1103,10 @@ public:
 		drText = Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "").layout (Layout::LEFT_TOP_RIGHT_H, 140, 15, 255, 110).get();
 		add(drText);
 
+		cursor = make_shared<TextCursorComponent>();
+		cursor->setLayout (Layout::RIGHT_TOP_W_H, 270, 84, 20, 20);
+		cursor->setVisible(false);
+		add(cursor);
 	}
 
 	void activateTargetPeptide() {
@@ -1399,9 +1429,17 @@ public:
 
 	void setDoctorText(const string &text) {
 		drText->setText(text);
-		drText->startTypewriter(Text::LETTER_BY_LETTER, 2);
+		drText->startTypewriter(Text::LETTER_BY_LETTER, 1);
 		drText->onAnimationComplete([=] () {
-			mode = Mode::WAIT_FOR_KEY;
+
+			if (currentScript == currentScriptEnd) {
+				mode = Mode::PLAYER_CONTROL;
+			}
+			else {
+				mode = Mode::WAIT_FOR_KEY;
+				cursor->setVisible(true);
+			}
+
 		});
 	}
 
@@ -1418,6 +1456,7 @@ public:
 
 			switch (currentScript->cmd) {
 				case Cmd::SAY:
+					mode = Mode::SCRIPT_RUNNING;
 					setDoctorText (currentScript->text);
 					done = true;
 					break;
@@ -1552,6 +1591,7 @@ public:
 			case Mode::WAIT_FOR_KEY:
 				if (event.type == ALLEGRO_EVENT_KEY_CHAR ||
 					event.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+					cursor->setVisible(false);
 					nextScriptStep();
 				}
 				break;
