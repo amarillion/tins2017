@@ -4,7 +4,7 @@
 BUILD=DEBUG
 #BUILD=RELEASE
 
-TWIST_HOME=twist5
+TWIST_HOME=../twist5
 CXX = g++
 LD = g++
 #CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE -DUSE_CURL
