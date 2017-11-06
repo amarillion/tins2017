@@ -24,6 +24,16 @@
 		</state>
 	</anim>
 
+	<anim id='handcursor' rle='handcursor-sheet' hotx = '0' hoty = '0' regionw='32' regionh='32'>
+		<state>
+			<frame originx='0' time='0' />
+		</state>
+		<state>
+			<frame originx='32' time='600'/>
+			<frame originx='0' time='9999'/>
+		</state>
+	</anim>
+
 	<anim id='dance' hotx = '0' hoty = '0'>
 		<frame rle='BunFront1' time='300'/>
 		<frame rle='BunFront2' time='300'/>

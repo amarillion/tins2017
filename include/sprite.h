@@ -7,11 +7,17 @@
 
 struct ALLEGRO_BITMAP;
 struct ALLEGRO_FONT;
+class Anim;
 
 class Sprite
 {
 protected:
-	ALLEGRO_BITMAP *sprite;
+	// will either draw anim, if defined, or else sprite, if defined.
+	Anim *anim = nullptr;
+	ALLEGRO_BITMAP *sprite = nullptr;
+	int state = 0;
+	int dir = 0;
+	int animStart = 0;
 
 	float x; // cell-x
 	float y;
@@ -24,6 +30,7 @@ protected:
 	bool awake;
 
 	ALLEGRO_FONT *font;
+
 public:
 	bool isAlive() { return alive; }
 	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
@@ -31,6 +38,10 @@ public:
 	void setAwake(bool value) { awake = value; }
 	bool isAwake() { return awake; }
 	void setVisible (bool value) { visible = value; }
+
+	void setState(int value);
+	void setDir(int value);
+	void setAnim(Anim *value);
 
 	virtual void draw(const GraphicsContext &gc);
 

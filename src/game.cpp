@@ -549,11 +549,13 @@ public:
 	int getPos() { return pos; }
 	DissolveEffect dissolve;
 	MutationCursor(GameImpl *parent) : parent(parent), pos(0) {
+		Sprite();
 		w = 32;
 		h = 32;
 		x = 0;
 		h = 0;
 		setPos(0);
+		anim = Engine::getResources()->getAnim("handcursor");
 	}
 
 	void setPos(int newpos) {
@@ -564,7 +566,7 @@ public:
 	virtual void update() override {
 		counter++;
 	}
-
+/*
 	virtual void draw(const GraphicsContext &gc) override {
 
 		double x1 = getx() + gc.xofst;
@@ -583,6 +585,8 @@ public:
 		al_draw_line (x1, y1 + 16, x1 + 16, y1, color2, 3.0);
 		al_draw_line (x1 + 16, y1, x1 + 32, y1 + 16, color2, 3.0);
 	}
+*/
+
 };
 
 struct Solution {
