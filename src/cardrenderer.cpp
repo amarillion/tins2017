@@ -64,6 +64,23 @@ public:
 		return result;
 	}
 
+	ALLEGRO_BITMAP *drawSmallNtCard(int idx) {
+		ALLEGRO_BITMAP *result = al_create_bitmap (NT_SMALL_WIDTH, NT_SMALL_HEIGHT);
+		Assert(result, "couldn't create a bitmap");
+
+		const NucleotideInfo *info = &nucleotideInfo[idx];
+
+		ALLEGRO_COLOR mainColor = getNucleotideColor((NT)idx, 0.5);
+		ALLEGRO_COLOR shadeColor = getNucleotideColor((NT)idx, 1.0);
+
+		al_set_target_bitmap(result);
+		drawOutlinedRect(0, 0, NT_SMALL_WIDTH, NT_SMALL_HEIGHT, mainColor, shadeColor, 1.0);
+
+		draw_shaded_textf(font, WHITE, GREY, NT_SMALL_WIDTH / 2, 2, ALLEGRO_ALIGN_CENTER, "%c", info->code);
+
+		return result;
+	}
+
 	void drawNucleotideCards() {
 		for (int i = 0; i < NUM_NUCLEOTIDES; ++i) {
 			ALLEGRO_BITMAP *bmp = drawNucleotideCard(i);
@@ -72,6 +89,11 @@ public:
 			res->putBitmap(ss.str(), bmp);
 			NucleotideInfo *info = &nucleotideInfo[i];
 			info->card = bmp;
+
+			stringstream ss2;
+			ss2 << info->code;
+			ALLEGRO_BITMAP *bmp2 = drawSmallNtCard(i);
+			res->putBitmap(ss2.str(), bmp2);
 		}
 
 	}

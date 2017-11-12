@@ -49,64 +49,72 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::ACTIVATE_ALL, "" },
 	}, {
 		// 1
-		{ Cmd::SAY, "Ok, let's have a look at our patient." },
-		{ Cmd::SAY, "Ah yes, I see. The patient needs an antibiotic.\n" },
-		{ Cmd::SAY, "With our mutation ray here,\nwe can generate the antibiotic directly inside the patients body.\n"
+		{ Cmd::SAY, "Ok, let's have a look at our patient.\n\n\n(press any key to continue)" },
+		{ Cmd::SAY, "Ah yes, I see. There is something wrong with the patient's genes.\n" },
+		{ Cmd::SAY, "With our mutation ray here,\nwe can mutate faulty genes to fix them, and cure the patient.\n"
 				"Don't worry, this won't hurt a bit.\nI mean, this probably won't hurt.\n" },
 		{ Cmd::BIGEYES, "" },
 		{ Cmd::SAY, "OK, this might hurt a little." },
 		{ Cmd::NORMALEYES, "" },
 		{ Cmd::ACTIVATE_GENE, "" },
-		{ Cmd::SAY, "Let's look at the genes of the patient.\n"
+		{ Cmd::SAY, "Let's look at a faulty gene. Here you have one.\n"
 				"Genes are made up of four letters,\n"
-				"A (Green), C (Blue), T (Red), G (Grey)\n"
-				"This patient currently has the gene: T, G, T\n"
-				"Or: Red, Grey, Red.\n" },
+				"<A>, <C>, <T> and <G>\n"
+				"The first gene we're looking at is just three letters long: <T><G><T>." },
 		{ Cmd::ACTIVATE_TARGET, "" },
-		{ Cmd::SAY, "The antibiotic we need is called Tryptophan.\n"
-				"Each combination of three letters produces something.\n" },
+		{ Cmd::SAY, "Each combination of three letters produces something.\n"
+				"This gene should produce Tryptophan.\n"
+				"For that we need <T><G><G>\n" },
 		{ Cmd::ACTIVATE_TRANSLATION, "" },
 		{ Cmd::SAY,
-				"We need TGG to produce Tryptophan, What we have looks almost right.\n"
-				"It is TGT, producing Cysteine.\n" },
+				"What we have looks almost right.\n"
+				"The gene is currently <T><G><T>, producing Cysteine.\n"
+				"But we need <T><G><G> to produce Tryptophan.\n" },
 		{ Cmd::SAY,
-				"We just need to mutate the last T to a G\n(or from Red to Grey).\n"
-				"Activate the mutation card with enter.\n"
-				"Move it over to the right spot and press enter to apply.\n"
+				"We just need to mutate the last <T> to a <G>\n"
+				"Here is how you do that:\n"
+				"Activate the mutation card with ENTER.\n"
+				"Move it over to the right spot and press ENTER to apply.\n"
 				}
 	}, { // 2
 		{ Cmd::ACTIVATE_TARGET, "" },
 		{ Cmd::SAY, "Our patient isn't fully healed yet.\n"
-					"Let's try a different cure.\n"
-					"Glutamate, in a triple dosis for good measure.\n"
-					"It always goes nice with chinese food!\n" },
+					"Let's fix another gene.\n"
+					"This gene should produce Glutamate,\nin a triple dosis for good measure.\n"
+					"Glutamate always goes nice with Chinese food!\n" },
 		{ Cmd::ACTIVATE_GENE, "" },
-		{ Cmd::SAY,	"Each group of three letters produces something.\n"
-					"We call these groups of three a 'codon'\n"
-					"Codons are redundant: several combinations\n"
-					"of letters produce the same result."},
-		{ Cmd::SAY, "For example, Glutamate corresponds to the codons GAG or GAA.\n"
-					"That's why there are two rows of symbols on the Glutamate card.\n" },
+		{ Cmd::SAY, "Groups of three letters are translated into something.\n"
+					"We call a group of three a 'codon'\n"
+					"Codons are redundant: some combinations\n"
+					"Lead to the same result" },
+		{ Cmd::SAY, "For example, the codons <G><A><G> and <G><A><A> are both translated\nto Glutamate."
+					"That's why you see two rows of symbols\non the Glutamate card.\n" },
 		{ Cmd::ACTIVATE_TRANSLATION, "" },
-		{ Cmd::SAY, "The goal is to generate glutamate three times.\n"
+		{ Cmd::SAY, "Our goal is to generate Glutamate three times.\n"
 					"We're almost there. Only one letter is out of place.\n"
 					"Move the mutation card over to apply the mutation."},
 	}, { // 3
+		{ Cmd::SAY,	"Tryptophan, Cysteine, Glutamate\n"
+					"They are all 'amino acids', and there are 20 of them.\n"
+					"Chains of amino acids form proteins\n"
+					"And proteins are the tiny machines that power your cells\n" },
 		{ Cmd::ACTIVATE_ALL, "" },
+		{ Cmd::SAY, "Let's look at another defective gene.\n"
+					"Now we have a choice. There are two possible mutation cards\n"
+					"A transversion and a transition" },
 		{ Cmd::SAY, "A transversion is a different kind of mutation than a transition.\n"
-					"A transition changes A into G, and a T into C.\n"
-					"A transversion changes A into a C, and a T into G.\n"
-					"If you look closely, the symbol on the mutation card shows this." },
+					"A transition swaps <A> with <G>, or <T> with <C>.\n"
+					"A transversion swaps <A> with <C>, or <T> with <G>.\n"
+					"If you look closely at the mutation card, the symbol shows this." },
 	}, {
 		// 4
 		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "The complement of a nucleotide.\n"
-					"Is the one it pairs with.\n"
-					"G pairs with C, A pairs with T." },
+		{ Cmd::SAY, "There is a third kind of mutation: the complement.\n"
+					"The complement swaps <G> with <C>, or <A> with <T>." },
 	}, {
 		// 5
 		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "Sometimes a mutation deletes a base.\n"
+		{ Cmd::SAY, "Sometimes a mutation deletes a letter.\n"
 					"This causes a frame shift.\n"
 					"All amino acids that are downstream\n"
 					"can be affected." },
@@ -125,7 +133,8 @@ Script scripts[NUM_SCRIPTS] = {
 		// 8
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "A stop codon halts the translation.\n"
-					"They are TAA, TGA or TAG.\n"
+					"They are <T><A><A>, <T><G><A> or <T><A><G>"
+					".\n"
 			},
 	}
 };
@@ -1431,8 +1440,49 @@ public:
 		nextScriptStep();
 	}
 
+	shared_ptr<RichTextModel> parseText(const string &text) {
+		auto result = make_shared<RichTextModel>();
+		enum Modes { TEXT, TAG };
+		int mode = TEXT;
+		size_t start = 0;
+		for (size_t i = 0; i < text.size(); ++i) {
+			int c = text[i];
+			switch(mode) {
+				case TEXT: {
+					if (c == '<') {
+						if (i > start) {
+							result->appendText(text.substr(start, i - start));
+						}
+						mode = TAG;
+						start = i+1;
+					}
+				}
+				break;
+				case TAG: {
+					if (c == '>') {
+						string tag = text.substr(start, i - start);
+						if (tag == "A" || tag == "C" || tag == "T" || tag == "G") {
+							result->appendImage(Engine::getResources()->getBitmap(tag));
+						}
+						start = i+1;
+						mode = TEXT;
+					}
+				}
+				break;
+			}
+		}
+
+		if (mode == TEXT) {
+			result->appendText(text.substr(start, text.size() - start));
+		}
+		return result;
+	}
+
 	void setDoctorText(const string &text) {
-		drText->setText(text);
+		auto model = parseText(text);
+		model->setColor(BLACK);
+		model->setFont(sfont);
+		drText->setTextModel(model);
 		drText->startTypewriter(Text::LETTER_BY_LETTER, 1);
 		drText->onAnimationComplete([=] () {
 

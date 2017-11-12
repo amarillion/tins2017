@@ -9,6 +9,9 @@ const int AA_STEPSIZE = AA_WIDTH + AA_SPACING;
 
 const int AA_PADDING = 4; // padding on inside of AA card.
 
+const int NT_SMALL_WIDTH = 16;
+const int NT_SMALL_HEIGHT = 12;
+
 const int NT_WIDTH = 30;
 const int NT_HEIGHT = 80;
 const int NT_SPACING = 8;
