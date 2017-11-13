@@ -187,7 +187,7 @@ LevelInfo levelInfo[NUM_LEVELS] = {
 
 	{  7, 9, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
-	{  0, 9, { AA::Gly, AA::Gly, AA::Asp }, "ACA" "CCA" "CC", { MutationId::REVERSE_COMPLEMENT, MutationId::INSERTION_G, MutationId::TRANSVERSION } },
+	{  7, 9, { AA::Gly, AA::Gly, AA::Asp }, "ACA" "CCA" "CC", { MutationId::REVERSE_COMPLEMENT, MutationId::INSERTION_G, MutationId::TRANSVERSION } },
 
 	{  0, 9, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
 
@@ -1098,10 +1098,6 @@ public:
 			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(button);
 
-		auto b2 = Button::build([=](){ pauseScreen(); }, "Pause (Space)")
-			.layout(Layout::RIGHT_BOTTOM_W_H, 140, 10, 120, 24).get();
-		add(b2);
-
 		auto b3 = Button::build([=](){ pushMsg(Engine::E_QUIT); }, "Quit")
 			.layout(Layout::LEFT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(b3);
@@ -1318,12 +1314,12 @@ public:
 		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_laser"));
 
 		if (currentLevel >= NUM_LEVELS) {
-			showMessage("You finished all levels, you won the game!",
+			showVictoryMessage("You finished all levels, you won the game!",
 					[=] () { pushMsg(Engine::E_QUIT); } );
 
 		}
 		else {
-			showMessage("Level Complete! Press any key...",
+			showVictoryMessage("Level Complete! Press any key...",
 					[=] () { initLevelAndScript(); } );
 		}
 	}
@@ -1384,39 +1380,15 @@ public:
 		started.clear();
 	}
 
-
-	void pauseScreen() {
-		if (popup) return; // can't pause twice...
-
-		startLoop("junglebeat");
-
-		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
-		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
-
-		auto t1 = Text::build(WHITE, ALLEGRO_ALIGN_CENTER, string("PAUSE")).layout (Layout::LEFT_TOP_RIGHT_H, 0, 50, 0, 100).get();
-		popup->add (t1);
-
-		Resources *res = Engine::getResources();
-		auto img2 = AnimComponent::build(res->getAnim("dance")).layout(Layout::CENTER_TOP_W_H, 0, 100, 64, 64).get();
-//		img2->setZoom(2.0);
-		popup->add(img2);
-
-		popupAction = [=](){
-			pauseComponents(true);
-			clearSound();
-		};
-		add (popup);
-
-		pauseComponents(false);
-	}
-
 	void pauseComponents(bool val) {
 		drText->setAwake(val);
 		patient->setAwake(val);
 		world.setAwake(val);
 	}
 
-	void showMessage(const char *text, ActionFunc actionFunc) {
+	void showVictoryMessage(const char *text, ActionFunc actionFunc) {
+
+		startLoop("junglebeat");
 
 		popup = Container::build().layout(Layout::LEFT_TOP_RIGHT_H, 0, 200, 0, 200).get();
 		popup->add (make_shared<ClearScreen>(al_map_rgba(0, 0, 0, 128)));
@@ -1424,7 +1396,15 @@ public:
 		auto t1 = Text::build(WHITE, ALLEGRO_ALIGN_CENTER, string(text)).layout (Layout::LEFT_TOP_RIGHT_H, 0, 50, 0, 100).get();
 		popup->add (t1);
 
-		popupAction = actionFunc;
+		Resources *res = Engine::getResources();
+		auto img2 = AnimComponent::build(res->getAnim("dance")).layout(Layout::CENTER_TOP_W_H, 0, 100, 64, 64).get();
+		popup->add(img2);
+
+		popupAction = [=](){
+			actionFunc();
+			clearSound();
+		};
+
 		add (popup);
 	}
 
@@ -1651,9 +1631,6 @@ public:
 							break;
 						case ALLEGRO_KEY_F1:
 							resetLevel();
-							break;
-						case ALLEGRO_KEY_SPACE:
-							pauseScreen();
 							break;
 					}
 				}
