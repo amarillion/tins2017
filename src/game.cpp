@@ -33,7 +33,7 @@ using namespace std;
 
 enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL };
 enum class Cmd { SAY, BIGEYES, NORMALEYES, ACTIVATE_ALL, ACTIVATE_GENE, ACTIVATE_TARGET, ACTIVATE_TRANSLATION,
-		WAIT_FOR_KEY, WAIT_FOR_MUTATION_SELECTED, WHEN_MATCH };
+		WAIT_FOR_KEY, WAIT_FOR_MUTATION_SELECTED, WHEN_MATCH, ADVANCE_LEVEL };
 
 struct Statement {
 	Cmd cmd;
@@ -42,7 +42,7 @@ struct Statement {
 
 using Script = vector<Statement>;
 
-const int NUM_SCRIPTS = 9;
+const int NUM_SCRIPTS = 12;
 Script scripts[NUM_SCRIPTS] = {
 	{
 		// 0: effectively no script
@@ -63,24 +63,24 @@ Script scripts[NUM_SCRIPTS] = {
 				"The first gene we're looking at is just three letters long: <T><G><T>." },
 		{ Cmd::ACTIVATE_TARGET, "" },
 		{ Cmd::SAY, "Each combination of three letters produces something.\n"
-				"This gene should produce Tryptophan.\n"
+				"This gene should produce 'Tryptophan'.\n"
 				"For that we need <T><G><G>\n" },
 		{ Cmd::ACTIVATE_TRANSLATION, "" },
 		{ Cmd::SAY,
 				"What we have looks almost right.\n"
-				"The gene is currently <T><G><T>, producing Cysteine.\n"
+				"The gene is currently <T><G><T>, producing 'Cysteine'.\n"
 				"But we need <T><G><G> to produce Tryptophan.\n" },
 		{ Cmd::SAY,
 				"We just need to mutate the last <T> to a <G>\n"
 				"Here is how you do that:\n"
-				"Activate the mutation card with ENTER.\n"
-				"Move it over to the right spot and press ENTER to apply.\n"
+				"Activate the mutation card with ENTER. "
+				"Move it\nto the right spot with LEFT or RIGHT, and press ENTER to apply.\n"
 				}
 	}, { // 2
 		{ Cmd::ACTIVATE_TARGET, "" },
 		{ Cmd::SAY, "Our patient isn't fully healed yet.\n"
 					"Let's fix another gene.\n"
-					"This gene should produce Glutamate,\nin a triple dosis for good measure.\n"
+					"This gene should produce 'Glutamate',\nin a triple dosis for good measure.\n"
 					"Glutamate always goes nice with Chinese food!\n" },
 		{ Cmd::ACTIVATE_GENE, "" },
 		{ Cmd::SAY, "Groups of three letters are translated into something.\n"
@@ -94,10 +94,6 @@ Script scripts[NUM_SCRIPTS] = {
 					"We're almost there. Only one letter is out of place.\n"
 					"Move the mutation card over to apply the mutation."},
 	}, { // 3
-		{ Cmd::SAY,	"Tryptophan, Cysteine, Glutamate\n"
-					"They are all 'amino acids', and there are 20 of them.\n"
-					"Chains of amino acids form proteins\n"
-					"And proteins are the tiny machines that power your cells\n" },
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "Let's look at another defective gene.\n"
 					"Now we have a choice. There are two possible mutation cards\n"
@@ -126,21 +122,49 @@ Script scripts[NUM_SCRIPTS] = {
 	}, {
 		// 7
 		{ Cmd::ACTIVATE_ALL, "" },
-		{ Cmd::SAY, "The reverse complement changes the direction of translation.\n"
-					"The entire sequence is rotated by 180 degrees.\n"
+		{ Cmd::SAY, "The 'reverse complement' changes the direction of translation.\n"
+					"Each letter is complemented: <A> to <T>, and <C> to <G>.\n"
+					"And the entire gene is reversed.\n"
 			},
 	}, {
 		// 8
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "A stop codon halts the translation.\n"
-					"They are <T><A><A>, <T><G><A> or <T><A><G>"
-					".\n"
+					"They are <T><A><A>, <T><G><A> or <T><A><G>."
+					"Insert a stop codon to shorten the resulting sequence.\n"
 			},
+	}, {
+		// 9
+		{ Cmd::SAY, "Well done!\n"
+					"You made our patient feel better!\n"
+		},
+		{ Cmd::ADVANCE_LEVEL, "" }
+	}, {
+		// 10
+		{ Cmd::SAY,	"Tryptophan, Cysteine are both a kind of 'amino acid'\n"
+					"Amino acids are the building blocks of proteins\n"
+					"And proteins are the tiny machines that power your cells\n"
+					"Well done, you completed the first trial" },
+		{ Cmd::ADVANCE_LEVEL, "" }
+	}, {
+		// 11
+		{ Cmd::SAY,	"Glutamate is another amino acid\n"
+					"In total there are 20 different kinds.\n"
+					"Sequences of amino acids\n"
+					"form and endless variety of proteins\n" },
+		{ Cmd::SAY, "Well done!\n"
+					"You made our patient feel better!\n"
+		},
+		{ Cmd::ADVANCE_LEVEL, "" }
 	}
 };
 
+const char *resetText = "Oh, looks like you used up all your mutation cards\nBut you haven't found the solution yet.\n"
+		"Press F1 or click the reset button to try again.";
+
 struct LevelInfo {
 	int scriptId; // -1 for none
+	int endScriptId;
 	Peptide targetPeptide;
 	OligoNt startGene;
 
@@ -151,27 +175,27 @@ struct LevelInfo {
 const int NUM_LEVELS = 12;
 LevelInfo levelInfo[NUM_LEVELS] = {
 
-	{  1, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
-	{  2, { AA::Glu, AA::Glu, AA::Glu }, "GAGGACGAA", { MutationId::TRANSVERSION } },
+	{  1, 10, { AA::Trp }, "TGT", { MutationId::TRANSVERSION } },
+	{  2, 11, { AA::Glu, AA::Glu, AA::Glu }, "GAGGACGAA", { MutationId::TRANSVERSION } },
 
-	{  3, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
+	{  3, 9, { AA::Leu, AA::Lys }, "TTCACA", { MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
-	{  4, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
-	{  5, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
+	{  4, 9, { AA::Pro, AA::Asp }, "CATCAT", { MutationId::COMPLEMENT, MutationId::TRANSVERSION } },
+	{  5, 9, { AA::Val, AA::Thr }, "GATTACA", { MutationId::DELETION } },
 
-	{  6, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
+	{  6, 9, { AA::Ser, AA::Ser, AA::Ser }, "TCTCTCTCT", { MutationId::DELETION, MutationId::INSERTION_T } },
 
-	{  7, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
+	{  7, 9, { AA::Leu, AA::Ile, AA::Gly, AA::Pro }, "GGGCCCAATTAA", { MutationId::REVERSE_COMPLEMENT } },
 
-	{  0, { AA::Gly, AA::Gly, AA::Asp }, "ACA" "CCA" "CC", { MutationId::REVERSE_COMPLEMENT, MutationId::INSERTION_G, MutationId::TRANSVERSION } },
+	{  0, 9, { AA::Gly, AA::Gly, AA::Asp }, "ACA" "CCA" "CC", { MutationId::REVERSE_COMPLEMENT, MutationId::INSERTION_G, MutationId::TRANSVERSION } },
 
-	{  0, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
+	{  0, 9, { AA::Arg, AA::Asp, AA::Leu }, "AGC" "GCT" "TTT", { MutationId::COMPLEMENT, MutationId::COMPLEMENT, MutationId::TRANSITION, MutationId::TRANSITION } },
 
-	{  0, { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
+	{  0, 9, { AA::Cys, AA::Ile, AA::Ser, AA::His }, "TGG" "TGT" "TCA" "CAT", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::COMPLEMENT } },
 
-	{  8, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
+	{  8, 9, { AA::Ser }, "TCTTGGACATC", { MutationId::DELETION } },
 
-	{  0, { AA::His, AA::Pro, AA::Ala, AA::Ala}, "CCG" "CCC" "GGC" "CCG", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::TRANSITION, MutationId::TRANSVERSION } },
+	{  0, 9, { AA::His, AA::Pro, AA::Ala, AA::Ala}, "CCG" "CCC" "GGC" "CCG", { MutationId::DELETION, MutationId::INSERTION_A, MutationId::TRANSITION, MutationId::TRANSVERSION } },
 
 	// GATTACA
 	// CAT CAT
@@ -575,27 +599,6 @@ public:
 	virtual void update() override {
 		counter++;
 	}
-/*
-	virtual void draw(const GraphicsContext &gc) override {
-
-		double x1 = getx() + gc.xofst;
-		double y1 = gety() + gc.yofst;
-
-		ALLEGRO_COLOR color1 = BLACK;
-		ALLEGRO_COLOR color2 = WHITE;
-
-		if ((counter / 5) % 2== 0) {
-			color2 = YELLOW;
-		}
-
-		al_draw_line (x1, y1 + 16, x1 + 16, y1, color1, 5.0);
-		al_draw_line (x1 + 16, y1, x1 + 32, y1 + 16, color1, 5.0);
-
-		al_draw_line (x1, y1 + 16, x1 + 16, y1, color2, 3.0);
-		al_draw_line (x1 + 16, y1, x1 + 32, y1 + 16, color2, 3.0);
-	}
-*/
-
 };
 
 struct Solution {
@@ -1334,13 +1337,20 @@ public:
 			// we have to wait for the Ribosome to finish. Ideally we have a signal that it's ready...
 			auto t1 = Timer::build(200, [=] () {
 
-				setUIEnabled(true);
-				advanceLevel();
+				startScriptId(levelInfo[currentLevel].endScriptId);
 
 			} ).get();
 
 			add(t1);
 		}
+		else if (currentMutationCards.size() == 0) {
+			//TODO: prevent repeat invocations
+			auto t1 = Timer::build(100, [=] () {
+				setDoctorText(resetText);
+			} ).get();
+			add(t1);
+		}
+
 	}
 
 	vector<ALLEGRO_SAMPLE_ID> started;
@@ -1425,19 +1435,23 @@ public:
 		}
 	}
 
+	void startScriptId(int scriptId) {
+		currentScript = scripts[scriptId].begin();
+		currentScriptEnd = scripts[scriptId].end();
+
+		mode = Mode::SCRIPT_RUNNING;
+		nextScriptStep();
+	}
+
 	void initLevelAndScript() {
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
 
-		currentScript = scripts[lev->scriptId].begin();
-		currentScriptEnd = scripts[lev->scriptId].end();
-
-		mode = Mode::SCRIPT_RUNNING;
-//		PuzzleAnalyzer::analyze(*lev);
-
 		initLevel();
+		//		PuzzleAnalyzer::analyze(*lev);
+
 		deactivateAll();
-		nextScriptStep();
+		startScriptId(lev->scriptId);
 	}
 
 	shared_ptr<RichTextModel> parseText(const string &text) {
@@ -1533,6 +1547,10 @@ public:
 				case Cmd::ACTIVATE_GENE:
 					activateGene();
 					break;
+				case Cmd::ADVANCE_LEVEL:
+					setUIEnabled(true);
+					advanceLevel();
+					break;
 				default:
 					break;
 			}
@@ -1551,13 +1569,13 @@ public:
 		Assert (currentLevel >= 0 && currentLevel < NUM_LEVELS, "currentLevel is out of range");
 		LevelInfo *lev = &levelInfo[currentLevel];
 
+		currentMutationCards = lev->mutationCards;
+		menu->initMutationCards(currentMutationCards);
+
 		currentDNA.setValue(lev->startGene);
 
 		Peptide pept = lev->targetPeptide;
 		targetPeptide.setValue(pept);
-
-		currentMutationCards = lev->mutationCards;
-		menu->initMutationCards(currentMutationCards);
 
 		drText->setText("");
 	}
@@ -1769,9 +1787,8 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 					(*selectedCard)->setFocus(false);
 					parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
 					MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
-
-					break;
 				}
+				break;
 			case ALLEGRO_KEY_LEFT:
 			case ALLEGRO_KEY_UP:
 			case ALLEGRO_KEY_PGUP:
