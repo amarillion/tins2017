@@ -1,5 +1,5 @@
 ==============================================================================
-                     Peppy Peptide Puzzle
+                     Peppy Protein Puzzle
 ==============================================================================
 
 
@@ -27,7 +27,7 @@ using the four letters ACTG
 In the top, you see a target amino acid sequence (a small protein, or peptide)
 Using a combination of the 20 naturally occurring amino acids.
 
-The gene is translated into a peptide. You can see a Ribosome
+The gene is translated into a protein. You can see a Ribosome
 come by to perform the translation. The result is displayed in the
 middle of the screen.
 

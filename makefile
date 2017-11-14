@@ -12,7 +12,7 @@ CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE
 LFLAGS =
 #LIBS= -lcurl
 LIBS=
-NAME = tins17
+NAME=peppy
 
 ifdef WINDOWS
 	PLATFORMSUF = _win
