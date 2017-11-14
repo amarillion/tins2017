@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include <allegro5/allegro.h>
+#include "data.h"
 
 enum class AA {
 	Ala, Arg, Asn, Asp, Cys, Gln, Glu, Gly, His, Ile, Leu, Lys, Met, Phe, Pro, Ser, Thr, Trp, Tyr, Val, STP
@@ -72,21 +73,7 @@ private:
 	std::vector<AA> codonTable;
 	std::map<std::string, AA> aaIndexByThreeLetterCode;
 public:
-	CodonTable() {
-
-		codonTable.resize(64);
-		for (int i = 0; i < NUM_AMINO_ACIDS; ++i) {
-			AA aa = static_cast<AA>(i);
-			auto aaInfo = &aminoAcidInfo[i];
-			for (auto codon : aaInfo->codons) {
-				int codonIdx = codonIndexFromString(codon);
-				codonTable[codonIdx] = aa;
-			}
-
-			aaIndexByThreeLetterCode[aaInfo->threeLetterCode] = aa;
-		}
-
-	}
+	CodonTable();
 
 	int getCodonIndex(int i, int j, int k);
 
@@ -104,5 +91,81 @@ public:
 ALLEGRO_COLOR getNucleotideColor(NT idx, float shade);
 
 extern CodonTable codonTable;
+
+enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
+
+class PeptideModel : public DataWrapper {
+
+private:
+	Peptide data;
+public:
+
+	PeptideModel() : data() {
+	}
+
+	void setValue(Peptide val) {
+		data = val;
+		FireEvent(EVT_PEPT_CHANGED);
+	}
+
+	size_t size() {
+		return data.size();
+	}
+
+	AA at(int idx) {
+		return data[idx];
+	}
+
+	Peptide getValue() {
+		return data; // should be copy
+	}
+};
+
+
+class DNAModel : public ListWrapper {
+private:
+	OligoNt data;
+public:
+	DNAModel() : data() {
+	}
+
+	void setValue(OligoNt val) {
+		data = val;
+		FireEvent(ListWrapper::FULL_CHANGE, 0);
+	}
+
+	size_t size() {
+		return data.size();
+	}
+
+	char at(int idx) {
+		return data.at(idx);
+	}
+
+	static Peptide translate(const OligoNt &myData);
+
+	Peptide translate() {
+		return translate(data);
+	}
+
+	static char getComplement(char nt);
+	static char getTransversion(char nt);
+	static char getTransition(char nt);
+
+	/** ignores stop codons and everything after */
+	static bool match(Peptide aPep, Peptide bPep);
+
+	static OligoNt applyMutation(const OligoNt &src, int pos, MutationId mutation);
+	void applyMutation (int pos, MutationId mutation);
+
+	/** in-place modification. Turn this DNA sequence into its reverse complement */
+	static OligoNt reverseComplement(const OligoNt &src) {
+		OligoNt newData;
+		for (auto it = src.rbegin(); it != src.rend(); it++) {
+			newData += getComplement(*it);
+		}
+		return newData;
+	}
+};
 
 #endif

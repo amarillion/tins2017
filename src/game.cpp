@@ -1,8 +1,5 @@
 #include "molbi.h"
 #include "dissolve.h"
-
-#include <assert.h>
-
 #include "game.h"
 #include "color.h"
 #include <allegro5/allegro.h>
@@ -12,22 +9,20 @@
 #include "engine.h"
 #include "util.h"
 #include "textstyle.h"
-#include "button.h"
 #include "panel.h"
 #include "button.h"
 
-#include "data.h"
 #include "messagebox.h"
 #include <algorithm>
 #include "timer.h"
 #include "text.h"
-#include <sstream>
-#include <fstream>
 
 #include "mainloop.h"
 #include "sprite.h"
 #include "cardrenderer.h"
 #include "layout_const.h"
+#include "level.h"
+#include "analyzer.h"
 
 using namespace std;
 
@@ -141,10 +136,10 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::ADVANCE_LEVEL, "" }
 	}, {
 		// 10
-		{ Cmd::SAY,	"Tryptophan, Cysteine are both a kind of 'amino acid'\n"
-					"Amino acids are the building blocks of proteins\n"
-					"And proteins are the tiny machines that power your cells\n"
-					"Well done, you completed the first trial" },
+		{ Cmd::SAY,	"Congratulations, you completed the first trial!\n\n"
+					"Tryptophan, Cysteine are both a kind of 'amino acid'\n"
+					"Amino acids are the building blocks of 'proteins',\n"
+					"the tiny machines that power your cells" },
 		{ Cmd::ADVANCE_LEVEL, "" }
 	}, {
 		// 11
@@ -161,16 +156,6 @@ Script scripts[NUM_SCRIPTS] = {
 
 const char *resetText = "Oh, looks like you used up all your mutation cards\nBut you haven't found the solution yet.\n"
 		"Press F1 or click the reset button to try again.";
-
-struct LevelInfo {
-	int scriptId; // -1 for none
-	int endScriptId;
-	Peptide targetPeptide;
-	OligoNt startGene;
-
-	// cards available in this level
-	vector<MutationId> mutationCards;
-};
 
 const int NUM_LEVELS = 12;
 LevelInfo levelInfo[NUM_LEVELS] = {
@@ -377,201 +362,6 @@ public:
 
 };
 
-enum { EVT_PEPT_CHANGED = 1, EVT_OLIGO_CHANGED };
-
-class PeptideModel : public DataWrapper {
-
-private:
-	Peptide data;
-public:
-
-	PeptideModel() : data() {
-	}
-
-	void setValue(Peptide val) {
-		data = val;
-		FireEvent(EVT_PEPT_CHANGED);
-	}
-
-	size_t size() {
-		return data.size();
-	}
-
-	AA at(int idx) {
-		return data[idx];
-	}
-
-	Peptide getValue() {
-		return data; // should be copy
-	}
-};
-
-
-class DNAModel : public ListWrapper {
-private:
-	OligoNt data;
-public:
-	DNAModel() : data() {
-	}
-
-	void setValue(OligoNt val) {
-		data = val;
-		FireEvent(ListWrapper::FULL_CHANGE, 0);
-	}
-
-	size_t size() {
-		return data.size();
-	}
-
-	char at(int idx) {
-		return data.at(idx);
-	}
-
-	static Peptide translate(const OligoNt &myData) {
-		Peptide pept;
-
-		for (size_t i = 0; i < myData.size() - 2; i += 3) {
-
-			AA aa = codonTable.getCodon(
-					(int)getNucleotideIndex(myData.at(i)),
-					(int)getNucleotideIndex(myData.at(i+1)),
-					(int)getNucleotideIndex(myData.at(i+2))
-			);
-			pept.push_back(aa);
-		}
-
-		return pept;
-	}
-
-	Peptide translate() {
-		return translate(data);
-	}
-
-	static char getComplement(char nt) {
-		switch (nt) {
-			case 'A': return 'T';
-			case 'T': return 'A';
-			case 'G': return 'C';
-			case 'C': return 'G';
-			default: Assert (false, "Invalid nucleotide");
-			return ' ';
-		}
-	}
-
-	static char getTransversion(char nt) {
-		switch (nt) {
-			case 'G': return 'T';
-			case 'T': return 'G';
-			case 'A': return 'C';
-			case 'C': return 'A';
-			default: Assert (false, "Invalid nucleotide");
-			return ' ';
-		}
-	}
-
-	static char getTransition(char nt) {
-		switch (nt) {
-			case 'G': return 'A';
-			case 'A': return 'G';
-			case 'T': return 'C';
-			case 'C': return 'T';
-			default: Assert (false, "Invalid nucleotide");
-			return ' ';
-		}
-	}
-
-	/** ignores stop codons and everything after */
-	static bool match(Peptide aPep, Peptide bPep) {
-		bool stopCodonFound = false;
-		size_t pos = 0;
-		while (true) {
-			AA a = (pos < aPep.size() ? aPep.at(pos) : AA::STP);
-			AA b = (pos < bPep.size() ? bPep.at(pos) : AA::STP);
-
-			if (a != b) { return false; }
-			if (a == AA::STP) { return true; }
-			pos++;
-		}
-	}
-
-	static OligoNt applyMutation(const OligoNt &src, int pos, MutationId mutation) {
-		OligoNt data = src;
-		switch (mutation) {
-		case MutationId::COMPLEMENT:
-			data[pos] = getComplement(data[pos]);
-			break;
-		case MutationId::TRANSVERSION:
-			data[pos] = getTransversion(data[pos]);
-			break;
-		case MutationId::TRANSITION:
-			data[pos] = getTransition(data[pos]);
-			break;
-		case MutationId::DELETION:
-			data.erase(pos, 1);
-			break;
-		case MutationId::REVERSE_COMPLEMENT:
-			data = reverseComplement(src);
-			break;
-		case MutationId::INSERTION_A:
-			data.insert(pos, "A");
-			break;
-		case MutationId::INSERTION_C:
-			data.insert(pos, "C");
-			break;
-		case MutationId::INSERTION_G:
-			data.insert(pos, "G");
-			break;
-		case MutationId::INSERTION_T:
-			data.insert(pos, "T");
-			break;
-		default:
-			Assert (false, "Invalid mutation id");
-			break;
-		}
-		return data;
-	};
-
-	void applyMutation (int pos, MutationId mutation) {
-
-		Assert (pos >= 0 && pos < (int)data.size(), "pos is out of range");
-		OligoNt oldData = data;
-		data = applyMutation(data, pos, mutation);
-
-
-		if (oldData != data) {
-
-			switch (mutation) {
-			case MutationId::COMPLEMENT:
-			case MutationId::TRANSITION:
-			case MutationId::TRANSVERSION:
-				FireEvent(ListWrapper::SINGLE_CHANGE, pos);
-				break;
-			case MutationId::DELETION:
-				FireEvent(ListWrapper::DELETE, pos);
-				break;
-			case MutationId::INSERTION_A:
-			case MutationId::INSERTION_C:
-			case MutationId::INSERTION_T:
-			case MutationId::INSERTION_G:
-				FireEvent(ListWrapper::INSERT, pos);
-				break;
-			default:
-				FireEvent(ListWrapper::FULL_CHANGE, 0);
-				break;
-			}
-		}
-	}
-
-	/** in-place modification. Turn this DNA sequence into its reverse complement */
-	static OligoNt reverseComplement(const OligoNt &src) {
-		OligoNt newData;
-		for (auto it = src.rbegin(); it != src.rend(); it++) {
-			newData += getComplement(*it);
-		}
-		return newData;
-	}
-};
-
 class GameImpl;
 
 class MutationCursor : public Sprite {
@@ -598,168 +388,6 @@ public:
 
 	virtual void update() override {
 		counter++;
-	}
-};
-
-struct Solution {
-	vector<MutationId> mutations;
-	vector<int> positions;
-};
-
-class PuzzleAnalyzer {
-private:
-	LevelInfo level;
-	Solution currentSolution;
-	map<Peptide, int> solutionFrequency;
-	ostream &os;
-
-	PuzzleAnalyzer(LevelInfo level, ostream &os) : level(level), os(os) {
-
-		// initalize currentSolutions
-		currentSolution = firstSolution(level);
-	}
-
-	static Solution firstSolution(LevelInfo level) {
-		Solution result;
-		result.mutations = level.mutationCards;
-		std::sort (result.mutations.begin(),
-				result.mutations.end());
-		result.positions.resize(result.mutations.size(), 0);
-		return result;
-	}
-
-	static bool nextSolution(Solution &solution, const LevelInfo &level) {
-		int size = level.startGene.size();
-		// calculate the maximums...
-		vector<int> sizes;
-
-		for (auto mut : solution.mutations) {
-			switch (mut) {
-			case MutationId::REVERSE_COMPLEMENT:
-				sizes.push_back(0);
-				break;
-			case MutationId::COMPLEMENT:
-			case MutationId::TRANSITION:
-			case MutationId::TRANSVERSION:
-				sizes.push_back (size);
-				break;
-			case MutationId::INSERTION_A:
-			case MutationId::INSERTION_C:
-			case MutationId::INSERTION_T:
-			case MutationId::INSERTION_G:
-				sizes.push_back (size);
-				size++;
-				break;
-			case MutationId::DELETION:
-				sizes.push_back (size);
-				size--;
-				break;
-			}
-		}
-
-		// transform the positions
-		int pos = solution.mutations.size() - 1;
-
-		bool carry = true;
-		while (carry) {
-			solution.positions[pos] += 1;
-			if (solution.positions[pos] >= sizes[pos]) {
-				solution.positions[pos] = 0;
-				carry = true;
-				pos--;
-				if (pos < 0) {
-					break;
-				}
-			} else {
-				carry = false;
-			}
-		}
-
-		bool result = true;
-		if (carry) {
-			result = std::next_permutation(solution.mutations.begin(), solution.mutations.end());
-		}
-
-		return result;
-	}
-
-	static int distanceScore(const Peptide &src, const Peptide &dest) {
-		int minSize = min(src.size(), dest.size());
-		int maxSize = max(src.size(), dest.size());
-
-		int score = maxSize - minSize;
-
-		for (int i = 0; i < minSize; i++) {
-			if (src.at(i) != dest.at(i)) score++;
-		}
-		return score;
-	}
-
-	static string peptideToString(const Peptide &pept) {
-		stringstream ss;
-		for (size_t i = 0; i < pept.size(); ++i) {
-			ss << aminoAcidInfo[static_cast<int>(pept.at(i))].threeLetterCode;
-		}
-		return ss.str();
-	}
-
-	static void analyseSolution(const Solution &solution, const LevelInfo &level, map<Peptide, int> &solutionFrequency, ostream &os) {
-
-		OligoNt gene = level.startGene;
-		Peptide pept;
-
-		for (size_t i = 0; i < solution.mutations.size(); ++i) {
-
-			os << (int)solution.mutations[i] << "#" << solution.positions[i] << " ";
-			gene = DNAModel::applyMutation(gene, solution.positions[i], solution.mutations[i]);
-
-			pept = DNAModel::translate(gene);
-			if (DNAModel::match (pept, level.targetPeptide)) break; // already solved
-		}
-
-		os << gene << " " << peptideToString(pept);
-
-		int dist = distanceScore(pept, level.targetPeptide);
-		os << " " << dist;
-
-		if (DNAModel::match(pept, level.targetPeptide)) { os << " *"; }
-		os<< endl;
-
-		if (solutionFrequency.find(pept) == solutionFrequency.end()) {
-			solutionFrequency[pept] = 1;
-		}
-		else {
-			solutionFrequency[pept] += 1;
-		}
-	}
-
-	void showAnalysis() {
-		os << "Solution frequency:" << endl;
-		for (auto pair : solutionFrequency) {
-			os << peptideToString(pair.first);
-			os << " " << pair.second << endl;
-		}
-	}
-
-	void bruteForce() {
-		vector<MutationId> mutationCards = level.mutationCards;
-		OligoNt current = level.startGene;
-		std::sort (mutationCards.begin(), mutationCards.end());
-		do {
-			analyseSolution(currentSolution, level, solutionFrequency, os);
-		} while (nextSolution(currentSolution, level));
-
-		showAnalysis();
-	}
-
-public:
-
-	static void analyze(LevelInfo level) {
-
-		std::ofstream ofs ("analysis.txt", std::ofstream::out);
-		PuzzleAnalyzer a = PuzzleAnalyzer(level, ofs);
-		a.bruteForce();
-		ofs.close();
 	}
 };
 
@@ -1428,7 +1056,7 @@ public:
 		LevelInfo *lev = &levelInfo[currentLevel];
 
 		initLevel();
-		//		PuzzleAnalyzer::analyze(*lev);
+//		analyzePuzzle(*lev);
 
 		deactivateAll();
 		startScriptId(lev->scriptId);
