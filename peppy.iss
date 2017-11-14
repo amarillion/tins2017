@@ -18,11 +18,11 @@ OutputDir=dist
 [Files]
 
 #ifdef DEBUG
-Source: "build/debug/peppy.exe"; DestDir: "{app}"
-Source: "build/debug/*.dll"; DestDir: "{app}"; Flags: ignoreversion;
+Source: "build\debug_win\peppy.exe"; DestDir: "{app}"
+Source: "build\debug_win\*.dll"; DestDir: "{app}"; Flags: ignoreversion;
 #else
-Source: "build/release/peppy.exe"; DestDir: "{app}"
-Source: "build/release/*.dll"; DestDir: "{app}"; Flags: ignoreversion;
+Source: "build\release_win\peppy.exe"; DestDir: "{app}"
+Source: "build\release_win\*.dll"; DestDir: "{app}"; Flags: ignoreversion;
 #endif
 
 Source: "README.txt"; DestDir: "{app}"; Flags: isreadme
