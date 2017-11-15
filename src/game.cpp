@@ -52,12 +52,12 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::SAY, "OK, this might hurt a little." },
 		{ Cmd::NORMALEYES, "" },
 		{ Cmd::ACTIVATE_GENE, "" },
-		{ Cmd::SAY, "Let's look at a faulty gene. Here you have one.\n"
+		{ Cmd::SAY, "Let's look at a faulty gene.\n"
 				"Genes are made up of four letters,\n"
 				"<A>, <C>, <T> and <G>\n"
-				"The first gene we're looking at is just three letters long: <T><G><T>." },
+				"Our first gene is just three letters long: <T><G><T>." },
 		{ Cmd::ACTIVATE_TARGET, "" },
-		{ Cmd::SAY, "Each combination of three letters produces something.\n"
+		{ Cmd::SAY, "Each group of three letters produces something.\n"
 				"This gene should produce 'Tryptophan'.\n"
 				"For that we need <T><G><G>\n" },
 		{ Cmd::ACTIVATE_TRANSLATION, "" },
@@ -75,18 +75,19 @@ Script scripts[NUM_SCRIPTS] = {
 		{ Cmd::ACTIVATE_TARGET, "" },
 		{ Cmd::SAY, "Our patient isn't fully healed yet.\n"
 					"Let's fix another gene.\n"
-					"This gene should produce 'Glutamate',\nin a triple dosis for good measure.\n"
+					"This gene should produce 'Glutamate', three times in a row.\n"
 					"Glutamate always goes nice with Chinese food!\n" },
 		{ Cmd::ACTIVATE_GENE, "" },
 		{ Cmd::SAY, "Groups of three letters are translated into something.\n"
 					"We call a group of three a 'codon'\n"
-					"Codons are redundant: some combinations\n"
+					"Codons are redundant. That means that some combinations\n"
 					"Lead to the same result" },
-		{ Cmd::SAY, "For example, the codons <G><A><G> and <G><A><A> are both translated\nto Glutamate."
-					"That's why you see two rows of symbols\non the Glutamate card.\n" },
+		{ Cmd::SAY, "For example, the codons <G><A><G> and <G><A><A> both translate\nto Glutamate."
+					"That's why the Glutamate card has two rows of symbols.\n" },
 		{ Cmd::ACTIVATE_TRANSLATION, "" },
-		{ Cmd::SAY, "Our goal is to generate Glutamate three times.\n"
+		{ Cmd::SAY, "Our goal is to produce Glutamate three times.\n"
 					"We're almost there. Only one letter is out of place.\n"
+					"Do you see which one it is?\n"
 					"Move the mutation card over to apply the mutation."},
 	}, { // 3
 		{ Cmd::ACTIVATE_ALL, "" },
@@ -125,7 +126,7 @@ Script scripts[NUM_SCRIPTS] = {
 		// 8
 		{ Cmd::ACTIVATE_ALL, "" },
 		{ Cmd::SAY, "A stop codon halts the translation.\n"
-					"They are <T><A><A>, <T><G><A> or <T><A><G>."
+					"They are <T><A><A>, <T><G><A> or <T><A><G>.\n"
 					"Insert a stop codon to shorten the resulting sequence.\n"
 			},
 	}, {
@@ -137,7 +138,7 @@ Script scripts[NUM_SCRIPTS] = {
 	}, {
 		// 10
 		{ Cmd::SAY,	"Congratulations, you completed the first trial!\n\n"
-					"Tryptophan, Cysteine are both a kind of 'amino acid'\n"
+					"Tryptophan and Cysteine are both a kind of 'amino acid'\n"
 					"Amino acids are the building blocks of 'proteins',\n"
 					"the tiny machines that power your cells" },
 		{ Cmd::ADVANCE_LEVEL, "" }
