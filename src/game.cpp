@@ -232,21 +232,6 @@ class CodonTableView : public IComponent {
 
 class GameImpl;
 
-class TextSprite : public Sprite {
-private:
-	string text;
-	ALLEGRO_COLOR color;
-public:
-	TextSprite (double x, double y, string text, ALLEGRO_COLOR color) : text(text), color(color) {
-		this->x = x;
-		this->y = y;
-	}
-
-	void draw(const GraphicsContext &gc) override {
-		al_draw_text(font, color, x, y, 0, text.c_str());
-	}
-};
-
 class NucleotideSprite : public Sprite, public enable_shared_from_this<NucleotideSprite> {
 private:
 	GameImpl *parent;
@@ -716,7 +701,10 @@ public:
 
 		currentPeptide.AddListener( [=] (int code) {
 			currentPeptideGroup->killAll();
-			generateRibosome();
+			if (currentPeptideGroup->isVisible()) {
+				generateRibosome();
+			}
+			checkWinCondition();
 		});
 
 		targetPeptide.AddListener( [=] (int code) {
@@ -755,7 +743,10 @@ public:
 	}
 
 	void activateCurrentPeptide() {
-		currentPeptideGroup->setVisible(true);
+		if (!currentPeptideGroup->isVisible()) {
+			generateRibosome();
+			currentPeptideGroup->setVisible(true);
+		}
 	}
 
 	void activateGene() {
@@ -830,6 +821,33 @@ public:
 		world.move(aa, xco, yco, 40);
 	}
 
+	void createCheckMark(int pos) {
+		// create check mark
+		int xco = SECTION_X;
+		int yco = CURRENT_PEPT_Y;
+		xco += pos * AA_STEPSIZE;
+
+		ALLEGRO_BITMAP *bitmap;
+		if (isPositionCorrect(pos)) {
+			bitmap = Engine::getResources()->getBitmap("correct");
+		}
+		else {
+			bitmap = Engine::getResources()->getBitmap("wrong");
+		}
+
+		xco += AA_WIDTH - (al_get_bitmap_width(bitmap) / 2);
+		yco -= (al_get_bitmap_height(bitmap) / 2);
+
+		auto check = make_shared<Sprite>();
+		check->setBitmap(bitmap);
+		check->setxy(xco, RIBOSOME_Y);
+		currentPeptideGroup->push_back(check);
+
+		auto animator = make_shared <MoveAnimator<overshoot> >(check, xco, yco, 40);
+		world.push_back(animator);
+	}
+
+
 	int getCurrentPeptideSize() {
 		return currentPeptide.size();
 	}
@@ -855,8 +873,6 @@ public:
 	void generateRibosome() {
 		auto ribo = make_shared<Ribosome>(this);
 		ribo->nextAnimation();
-
-		checkWinCondition();
 		currentPeptideGroup->push_back(ribo);
 	}
 
@@ -953,6 +969,10 @@ public:
 		}
 	}
 
+	bool isPositionCorrect(int pos) {
+		return (currentPeptide.at(pos) == targetPeptide.at(pos));
+	}
+
 	void checkWinCondition() {
 		if (DNAModel::match (currentPeptide.getValue(), targetPeptide.getValue())) {
 
@@ -968,9 +988,11 @@ public:
 
 			add(t1);
 		}
+		// you used up all your cards and you haven't won
 		else if (currentMutationCards.size() == 0) {
 			//TODO: prevent repeat invocations
 			auto t1 = Timer::build(100, [=] () {
+				// display text explaining reset option.
 				setDoctorText(resetText);
 			} ).get();
 			add(t1);
@@ -1307,6 +1329,8 @@ void Ribosome::nextAnimation() {
 	else if (aaPos >= 0)
 	{
 		parent->currentPeptideToSprite(aaPos);
+
+		parent->createCheckMark(aaPos);
 	}
 
 	aaPos++;
@@ -1318,7 +1342,9 @@ void Ribosome::nextAnimation() {
 	else {
 		int xco = aaPos * AA_STEPSIZE + (AA_SPACING / 2) + SECTION_X;
 		int yco = RIBOSOME_Y;
-		parent->world.move(shared_from_this(), xco, yco, 50);
+
+		auto animator = make_shared <MoveAnimator<sigmoid> >(shared_from_this(), xco, yco, 50);
+		parent->world.push_back(animator);
 	}
 }
 

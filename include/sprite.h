@@ -4,6 +4,7 @@
 #include "graphicscontext.h"
 #include <list>
 #include <memory>
+#include <functional>
 
 struct ALLEGRO_BITMAP;
 struct ALLEGRO_FONT;
@@ -42,6 +43,7 @@ public:
 	void setState(int value);
 	void setDir(int value);
 	void setAnim(Anim *value);
+	void setBitmap(ALLEGRO_BITMAP *img);
 
 	virtual void draw(const GraphicsContext &gc);
 
@@ -56,7 +58,19 @@ public:
 	virtual void handleAnimationComplete() {};
 };
 
+/*
+ * Easing func: translates time component between 0 (start) and 1 (end) to a
+ * value between 0 (start) and 1 (end). The result may overshoot and undershoot,
+ * i.e. generate values outside the range 0 and 1, as long as the end points
+ * are fixed, i.e. func(0) -> 0 and func(1) -> 1.
+ */
+typedef double (*EasingFunc)(double);
 
+double linear(double val);
+double overshoot(double val);
+double sigmoid(double val);
+
+template <EasingFunc F>
 class MoveAnimator : public Sprite {
 
 	float destX, destY;
@@ -76,9 +90,12 @@ public:
 		if (!target) return;
 
 		// interpolate...
-		float delta = (float)currentStep / (float)totalSteps;
-		float newx = srcX + delta * (destX - srcX);
-		float newy = srcY + delta * (destY - srcY);
+		double delta = (double)currentStep / (double)totalSteps;
+
+		// apply easing func
+		double ease = F(delta);
+		double newx = srcX + ease * (destX - srcX);
+		double newy = srcY + ease * (destY - srcY);
 		target->setxy(newx, newy);
 
 		currentStep++;
@@ -90,8 +107,6 @@ public:
 		}
 	}
 };
-
-
 
 /** grouping of sprites
  *
