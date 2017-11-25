@@ -218,12 +218,10 @@ public:
 		x = -100;
 	}
 
-	virtual void update() override {
-
-	}
-
 	virtual void handleAnimationComplete() override {
-		nextAnimation();
+		if (alive) {
+			nextAnimation();
+		}
 	}
 
 	void nextAnimation();
@@ -529,7 +527,6 @@ public:
 		});
 
 		currentPeptide.AddListener( [=] (int code) {
-			currentPeptideGroup->killAll();
 			if (currentPeptideGroup->isVisible()) {
 				generateRibosome();
 			}
@@ -700,6 +697,7 @@ public:
 	}
 
 	void generateRibosome() {
+		currentPeptideGroup->killAll();
 		auto ribo = make_shared<Ribosome>(this);
 		ribo->nextAnimation();
 		currentPeptideGroup->push_back(ribo);
