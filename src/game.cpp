@@ -177,8 +177,6 @@ public:
 
 };
 
-class GameImpl;
-
 class MutationCursor : public Sprite {
 	GameImpl *parent;
 	int pos;
@@ -232,8 +230,6 @@ class MutationCardSprite : public Sprite {
 
 	MutationId mutationId;
 	const MutationInfo *info;
-	bool focus = false;
-	int counter = 0;
 public:
 	int origX;
 	int origY;
@@ -250,21 +246,9 @@ public:
 
 	MutationId getMutationId() { return mutationId; }
 
-	void setFocus(bool value) {
-		focus = value;
-		counter = 0;
-	}
-
-	virtual void update () override {
-		counter ++;
-	}
-
 	virtual void draw (const GraphicsContext &gc) override {
 
-		ALLEGRO_COLOR color1 = al_map_rgb_f(0, 0.5, 0);
-		ALLEGRO_COLOR color2 = al_map_rgb_f(0.5, 0.5, 0);
-
-		ALLEGRO_COLOR color = (focus && ((counter / 5) % 2 == 0) ? color2 : color1);
+		ALLEGRO_COLOR color = al_map_rgb_f(0, 0.5, 0);
 
 		double x1 = x + gc.xofst;
 		double y1 = y + gc.yofst;
@@ -325,21 +309,26 @@ public:
 	}
 };
 
+enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL, MUTATION_SELECT, POS_SELECT };
+
 class Controller : public Container {
 private:
 	GameImpl *parent;
 	list<shared_ptr<MutationCardSprite>> cards;
 	shared_ptr<MutationCursor> mutationCursor;
 	list<shared_ptr<MutationCardSprite>>::iterator selectedCard;
-
+	Mode mode;
 public:
-	Controller(GameImpl *parent) : parent(parent) {
+	Controller(GameImpl *parent) : parent(parent), mode(Mode::MUTATION_SELECT) {
 	}
 
 	// wrappers for GameImpl functions, so we can keep the main body here...
 	void addToWorld(const shared_ptr<Sprite> &val);
 
 	void handleEvent(ALLEGRO_EVENT &event);
+
+	void moveCursorToSelectedCard();
+	void moveCursorToPos(int pos, int speed);
 
 	void initMutationCards(vector<MutationId> mutations) {
 
@@ -348,6 +337,7 @@ public:
 			i->kill();
 		}
 		cards.clear();
+		mode = Mode::MUTATION_SELECT;
 
 		int yco = gety();
 
@@ -370,8 +360,11 @@ public:
 		}
 
 		selectedCard = cards.begin();
-		(*selectedCard)->setFocus(true);
 
+		if (mutationCursor) { mutationCursor->kill(); }
+		mutationCursor = make_shared<MutationCursor>(parent);
+		addToWorld(mutationCursor);
+		mutationCursor->setxy((*selectedCard)->origX + MUTCARD_W - 24, (*selectedCard)->origY + MUTCARD_H - 8);
 	}
 
 	void changeCardFocus(int delta) {
@@ -400,20 +393,7 @@ public:
 
 		if (oldSelectedCard != selectedCard) {
 			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-			if (oldSelectedCard != cards.end()) {
-				(*oldSelectedCard)->setFocus(false);
-			}
-			if (selectedCard != cards.end()) {
-				(*selectedCard)->setFocus(true);
-			}
 		}
-	}
-
-	void createMutationCursor() {
-		if (mutationCursor) { mutationCursor->kill(); }
-		mutationCursor = make_shared<MutationCursor>(parent);
-		mutationCursor->setxy(SECTION_X, CURSOR_Y);
-		addToWorld(mutationCursor);
 	}
 
 	// no draw method... just controlling the game
@@ -1179,11 +1159,26 @@ void Controller::addToWorld(const shared_ptr<Sprite> &val) {
 	parent->world.push_back(val);
 }
 
+
+void Controller::moveCursorToSelectedCard() {
+	parent->world.move(mutationCursor,
+			(*selectedCard)->origX + MUTCARD_W - 24,
+			(*selectedCard)->origY + MUTCARD_H - 8,
+		20);
+}
+
+void Controller::moveCursorToPos(int pos, int speed) {
+	int newx = (SECTION_X + NT_STEPSIZE * pos);
+	parent->world.move(mutationCursor, newx, CURSOR_Y, speed);
+}
+
+
 void Controller::handleEvent(ALLEGRO_EVENT &event) {
+	// only respond to keyboard events...
+	if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
 
-	if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-		if (mutationCursor) {
-
+	switch (mode) {
+		case Mode::POS_SELECT: {
 			int pos = mutationCursor->getPos();
 			int newpos = pos;
 
@@ -1201,10 +1196,10 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 				break;
 			case ALLEGRO_KEY_ESCAPE:
 				// move card back to where it came from...
-				(*selectedCard)->setFocus(true);
+				moveCursorToSelectedCard();
 				parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, 20);
-				mutationCursor->kill();
-				mutationCursor = nullptr;
+				moveCursorToSelectedCard();
+				mode = Mode::MUTATION_SELECT;
 				break;
 			case ALLEGRO_KEY_ENTER:
 			case ALLEGRO_KEY_PAD_ENTER:
@@ -1218,11 +1213,10 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 					selectedCard = cards.erase(selectedCard);
 					if (selectedCard == cards.end()) selectedCard = cards.begin();
 					if (selectedCard != cards.end()) {
-						(*selectedCard)->setFocus(true);
+						moveCursorToSelectedCard();
 					}
 
-					mutationCursor->kill();
-					mutationCursor = nullptr;
+					mode = Mode::MUTATION_SELECT;
 				}
 				break;
 			}
@@ -1231,21 +1225,20 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 				mutationCursor->setPos(newpos);
 				MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
 
-				int newx = (SECTION_X + NT_STEPSIZE * newpos);
-				parent->world.move(mutationCursor, newx, mutationCursor->gety(), 10);
+				moveCursorToPos(newpos, 10);
 			}
 		}
-
-		else {
-
+		break;
+		case Mode::MUTATION_SELECT: {
 			switch (event.keyboard.keycode) {
 			case ALLEGRO_KEY_ENTER:
 			case ALLEGRO_KEY_PAD_ENTER:
 				if (selectedCard != cards.end()) {
-					createMutationCursor();
-					(*selectedCard)->setFocus(false);
+
+					moveCursorToPos(0, 20);
 					parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
 					MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
+					mode = Mode::POS_SELECT;
 				}
 				break;
 			case ALLEGRO_KEY_LEFT:
@@ -1256,6 +1249,7 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 			case ALLEGRO_KEY_PAD_4:
 			case ALLEGRO_KEY_PAD_8:
 				changeCardFocus(-1);
+				moveCursorToSelectedCard();
 				break;
 			case ALLEGRO_KEY_RIGHT:
 			case ALLEGRO_KEY_DOWN:
@@ -1266,9 +1260,10 @@ void Controller::handleEvent(ALLEGRO_EVENT &event) {
 			case ALLEGRO_KEY_PAD_2:
 			case ALLEGRO_KEY_TAB:
 				changeCardFocus(+1);
+				moveCursorToSelectedCard();
 				break;
 			}
 		}
-
+		break;
 	}
 }
