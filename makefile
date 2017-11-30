@@ -110,7 +110,7 @@ SRC_TEST = $(wildcard test/*.cpp)
 OBJ_TEST = $(patsubst %.cpp, $(OBJDIR)/%.o, $(notdir $(SRC_TEST)))
 
 $(NAME_TEST): $(OBJ_TEST) $(OBJ)
-	$(CXX) -o $(NAME_TEST) $(OBJ_TEST) $(OBJDIR)/parser.o $(LIBS) $(LDFLAGS_TEST) 
+	$(CXX) -o $(NAME_TEST) $(OBJ_TEST) $(OBJDIR)/molbi.o $(OBJDIR)/data.o $(LIBS) $(LDFLAGS_TEST) 
 
 .PHONY: test
 test: $(NAME_TEST)

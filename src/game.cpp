@@ -582,23 +582,7 @@ public:
 		initLevelAndScript();
 	}
 
-	// sanity test at startup. TODO: should be unit test
-	void test() {
-		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Thr }));
-		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ }));
-		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Thr }));
-		assert (! DNAModel::match(Peptide{ AA::Tyr }, Peptide{ AA::Tyr, AA::Tyr }));
-
-		assert (DNAModel::match(Peptide{}, Peptide{}));
-		assert (DNAModel::match(Peptide{ AA::Ile }, Peptide{ AA::Ile }));
-		assert (DNAModel::match(Peptide{ AA::Ile }, Peptide{ AA::Ile, AA::STP }));
-		assert (DNAModel::match(Peptide{ AA::STP }, Peptide{}));
-		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile }));
-		assert (DNAModel::match(Peptide{ AA::Ile, AA::STP, AA::Val }, Peptide{ AA::Ile, AA::STP }));
-	}
-
 	virtual void init() override {
-		test();
 		renderCards();
 	}
 
