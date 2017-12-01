@@ -7,11 +7,9 @@ BUILD=DEBUG
 TWIST_HOME=../twist5
 CXX = g++
 LD = g++
-#CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE -DUSE_CURL
-CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE
+CFLAGS = -std=c++11 -Iinclude -I$(TWIST_HOME)/include -W -Wall -Wno-unused -DUSE_MOUSE -DUSE_CURL
 LFLAGS =
-#LIBS= -lcurl
-LIBS=
+LIBS= -lcurl
 NAME=peppy
 
 ifdef WINDOWS

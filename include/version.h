@@ -1,0 +1,1 @@
+#define APPLICATION_VERSION "0.2"

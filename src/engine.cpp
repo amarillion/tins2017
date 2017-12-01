@@ -3,6 +3,9 @@
 #include "mainloop.h"
 #include "menubase.h"
 #include "DrawStrategy.h"
+#include "updatechecker.h"
+#include "version.h"
+#include "fileutil.h"
 
 using namespace std;
 
@@ -10,6 +13,7 @@ class EngineImpl : public Engine {
 private:
 	MenuListPtr mMain;
 	std::shared_ptr<AnimComponent> bunny;
+	shared_ptr<UpdateChecker> updates;
 public:
 	std::shared_ptr<Game> game;
 
@@ -49,6 +53,11 @@ public:
 
 		setFont(font);
 
+		string cacheDir = Path::getUserSettingsPath().toString(ALLEGRO_NATIVE_PATH_SEP);
+		updates = UpdateChecker::newInstance(cacheDir, APPLICATION_VERSION, Engine::E_QUIT);
+	 	add (updates, Container::FLAG_SLEEP);
+	 	updates->start_check_thread("peppy", "en");
+
 		game = Game::newInstance();
 		game->init();
 		add(game, Container::FLAG_SLEEP);
@@ -62,7 +71,7 @@ public:
 	{
 		mMain = MenuBuilder(this, NULL)
 			.push_back (make_shared<ActionMenuItem> (E_START, "Start", "Start a new game"))
-			.push_back (make_shared<ActionMenuItem> (E_QUIT, "Quit", "Exit"))
+			.push_back (make_shared<ActionMenuItem> (E_BEFORE_QUIT, "Quit", "Exit"))
 			.push_back (make_shared<ActionMenuItem> (E_TOGGLE_FULLSCREEN, "Toggle Fullscreen", "Switch fullscreen / windowed mode"))
 			.build();
 		mMain->setFont(sfont);
@@ -107,6 +116,9 @@ public:
 				game->initGame();
 				setFocus(game);
 			}).get());
+			break;
+		case E_BEFORE_QUIT:
+			setFocus(updates);
 			break;
 		case E_QUIT:
 			pushMsg(MSG_CLOSE);

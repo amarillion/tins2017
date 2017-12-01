@@ -33,6 +33,21 @@ do
 	cp $BASE/libiconv-2.dll $DEST
 	cp $BASE/libgraphite2.dll $DEST
 	cp $BASE/libpcre-1.dll $DEST
+	cp $BASE/libcurl-4.dll $DEST
+	cp $BASE/librtmp-1.dll $DEST
+	cp $BASE/libssh2-1.dll $DEST
+	cp $BASE/libnettle-6.dll $DEST
+	cp $BASE/libgmp-10.dll $DEST
+	cp $BASE/libgnutls-30.dll $DEST
+	cp $BASE/libp11-kit-0.dll $DEST
+	cp $BASE/libtasn1-6.dll $DEST
+	cp $BASE/libidn-11.dll $DEST
+	cp $BASE/libhogweed-4.dll $DEST
+	cp $BASE/libffi-6.dll $DEST
+	cp $BASE/LIBEAY32.dll $DEST
+	cp $BASE/SSLEAY32.dll $DEST
+	cp $BASE/libnghttp2-14.dll $DEST
+	cp $BASE/libunistring-2.dll $DEST
 	cp $WINDOWS_BASE/xinput1_3.dll $DEST
 
 	echo Checking $DEST/*.exe

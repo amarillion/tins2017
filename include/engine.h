@@ -15,7 +15,7 @@ public:
 	static bool isDebug() { return debugMode; }
 	static std::shared_ptr<Engine> newInstance();
 
-	enum { E_NONE = 0, E_RESUME, E_QUIT, E_START, E_TOGGLE_FULLSCREEN };
+	enum { E_NONE = 0, E_RESUME, E_QUIT, E_BEFORE_QUIT, E_START, E_TOGGLE_FULLSCREEN };
 };
 
 #endif

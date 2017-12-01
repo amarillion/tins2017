@@ -461,7 +461,7 @@ public:
 			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(button);
 
-		auto b3 = Button::build([=](){ pushMsg(Engine::E_QUIT); }, "Quit")
+		auto b3 = Button::build([=](){ pushMsg(Engine::E_BEFORE_QUIT); }, "Quit")
 			.layout(Layout::LEFT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(b3);
 
