@@ -6,7 +6,7 @@ using namespace std;
 int main(int argc, const char *const *argv)
 {
 	MainLoop mainloop = MainLoop();
-	auto engine = make_shared<Engine>();
+	auto engine = Engine::newInstance();
 
 	mainloop
 		.setEngine(engine)

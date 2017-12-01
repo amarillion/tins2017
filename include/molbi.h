@@ -37,20 +37,11 @@ enum class MutationId {
 
 struct MutationInfo {
 	std::string name;
+	ALLEGRO_BITMAP *card;
 };
 
 const int NUM_MUTATIONS = 9;
-const MutationInfo mutationInfo[NUM_MUTATIONS] {
-	{ "TRANSVERSION" },
-	{ "TRANSITION" },
-	{ "COMPLEMENT" },
-	{ "REVERSE COMPLEMENT" },
-	{ "INSERT A" },
-	{ "INSERT C" },
-	{ "INSERT T" },
-	{ "INSERT_G" },
-	{ "DELETION" }
-};
+extern MutationInfo mutationInfo[NUM_MUTATIONS];
 
 const int NUM_NUCLEOTIDES = 4;
 struct NucleotideInfo {

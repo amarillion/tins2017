@@ -30,8 +30,6 @@ protected:
 	bool visible;
 	bool awake;
 
-	ALLEGRO_FONT *font;
-
 public:
 	bool isAlive() { return alive; }
 	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }

@@ -239,74 +239,12 @@ public:
 		x = xco;
 		y = yco;
 		info = &mutationInfo[static_cast<int>(mutationId)];
-		ALLEGRO_FONT *font = Engine::getResources()->getFont("builtin_font");
 		origX = xco;
 		origY = yco;
+		sprite = info->card;
 	}
 
 	MutationId getMutationId() { return mutationId; }
-
-	virtual void draw (const GraphicsContext &gc) override {
-
-		ALLEGRO_COLOR color = al_map_rgb_f(0, 0.5, 0);
-
-		double x1 = x + gc.xofst;
-		double y1 = y + gc.yofst;
-		double x2 = x1 + w;
-		double y2 = y1 + h;
-		al_draw_filled_rectangle(x1, y1, x2, y2, color);
-		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
-
-		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
-
-		drawLogo (40, 20);
-	}
-
-	void drawLogo (int dx, int dy) {
-		const int SIZE = 6;
-		const int SIZE_2 = SIZE / 2;
-		const int SPACING = 6;
-		const int STEP = SIZE + SPACING;
-
-		int xx = dx + getx();
-		int yy = dy + gety();
-
-		int xm = xx + SIZE_2;
-		int ym = yy + SIZE_2;
-
-		switch (mutationId) {
-		case MutationId::TRANSVERSION:
-			al_draw_line (xm, ym, xm + STEP, ym + STEP, BLACK, 2.0);
-			al_draw_line (xm + STEP, ym, xm, ym + STEP, BLACK, 2.0);
-			break;
-		case MutationId::COMPLEMENT:
-			al_draw_line (xm, ym, xm, ym + STEP, BLACK, 2.0);
-			al_draw_line (xm + STEP, ym, xm + STEP, ym + STEP, BLACK, 2.0);
-			break;
-		case MutationId::TRANSITION:
-			al_draw_line (xm, ym, xm + STEP, ym, BLACK, 2.0);
-			al_draw_line (xm, ym + STEP, xm + STEP, ym + STEP, BLACK, 2.0);
-			break;
-		default: return; // don't draw any logo
-		}
-
-		drawOutlinedRect(xx, yy, xx + SIZE, yy + SIZE,
-				getNucleotideColor(NT::A, 1.0),
-				getNucleotideColor(NT::A, 0.5), 1.0);
-
-		drawOutlinedRect(xx + STEP, yy, xx + STEP + SIZE, yy + SIZE,
-				getNucleotideColor(NT::G, 1.0),
-				getNucleotideColor(NT::G, 0.5), 1.0);
-
-		drawOutlinedRect(xx, yy + STEP, xx + SIZE, yy + STEP + SIZE,
-				getNucleotideColor(NT::T, 1.0),
-				getNucleotideColor(NT::T, 0.5), 1.0);
-
-		drawOutlinedRect(xx + STEP, yy + STEP, xx + STEP + SIZE, yy + STEP + SIZE,
-				getNucleotideColor(NT::C, 1.0),
-				getNucleotideColor(NT::C, 0.5), 1.0);
-
-	}
 };
 
 enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL, MUTATION_SELECT, POS_SELECT };
@@ -326,6 +264,8 @@ public:
 	void addToWorld(const shared_ptr<Sprite> &val);
 
 	void handleEvent(ALLEGRO_EVENT &event);
+	void handleEventPosSelect(ALLEGRO_EVENT &event);
+	void handleEventMutationSelect(ALLEGRO_EVENT &event);
 
 	void moveCursorToSelectedCard();
 	void moveCursorToPos(int pos, int speed);
@@ -1030,7 +970,7 @@ public:
 		al_clear_to_color(al_map_rgb(172,232,135));
 		if (Engine::isDebug())
 		{
-			al_draw_text(Engine::getFont(), LIGHT_BLUE, 0, 0, ALLEGRO_ALIGN_LEFT, "DEBUG ON");
+			al_draw_text(sfont, LIGHT_BLUE, 0, 0, ALLEGRO_ALIGN_LEFT, "DEBUG ON");
 		}
 
 		world.draw(gc);
@@ -1156,97 +1096,106 @@ void Controller::moveCursorToPos(int pos, int speed) {
 	parent->world.move(mutationCursor, newx, CURSOR_Y, speed);
 }
 
-
-void Controller::handleEvent(ALLEGRO_EVENT &event) {
+void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
 	// only respond to keyboard events...
 	if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
 
-	switch (mode) {
-		case Mode::POS_SELECT: {
-			int pos = mutationCursor->getPos();
-			int newpos = pos;
+	int pos = mutationCursor->getPos();
+	int newpos = pos;
 
-			switch (event.keyboard.keycode) {
-			case ALLEGRO_KEY_LEFT:
-			case ALLEGRO_KEY_A:
-			case ALLEGRO_KEY_PAD_4:
-			case ALLEGRO_KEY_TAB:
-				newpos = max (0, pos-1);
-				break;
-			case ALLEGRO_KEY_RIGHT:
-			case ALLEGRO_KEY_D:
-			case ALLEGRO_KEY_PAD_6:
-				newpos = min(pos+1, parent->getOligoSize() - 1);
-				break;
-			case ALLEGRO_KEY_ESCAPE:
-				// move card back to where it came from...
+	switch (event.keyboard.keycode) {
+	case ALLEGRO_KEY_LEFT:
+	case ALLEGRO_KEY_A:
+	case ALLEGRO_KEY_PAD_4:
+	case ALLEGRO_KEY_TAB:
+		newpos = max (0, pos-1);
+		break;
+	case ALLEGRO_KEY_RIGHT:
+	case ALLEGRO_KEY_D:
+	case ALLEGRO_KEY_PAD_6:
+		newpos = min(pos+1, parent->getOligoSize() - 1);
+		break;
+	case ALLEGRO_KEY_ESCAPE:
+		// move card back to where it came from...
+		moveCursorToSelectedCard();
+		parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, 20);
+		moveCursorToSelectedCard();
+		mode = Mode::MUTATION_SELECT;
+		break;
+	case ALLEGRO_KEY_ENTER:
+	case ALLEGRO_KEY_PAD_ENTER:
+		if (!parent->isUIEnabled()) {
+			//TODO: error buzzer sample
+		}
+		else {
+			parent->applyMutation(pos, (*selectedCard)->getMutationId());
+
+			(*selectedCard)->kill();
+			selectedCard = cards.erase(selectedCard);
+			if (selectedCard == cards.end()) selectedCard = cards.begin();
+			if (selectedCard != cards.end()) {
 				moveCursorToSelectedCard();
-				parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, 20);
-				moveCursorToSelectedCard();
-				mode = Mode::MUTATION_SELECT;
-				break;
-			case ALLEGRO_KEY_ENTER:
-			case ALLEGRO_KEY_PAD_ENTER:
-				if (!parent->isUIEnabled()) {
-					//TODO: error buzzer sample
-				}
-				else {
-					parent->applyMutation(pos, (*selectedCard)->getMutationId());
-
-					(*selectedCard)->kill();
-					selectedCard = cards.erase(selectedCard);
-					if (selectedCard == cards.end()) selectedCard = cards.begin();
-					if (selectedCard != cards.end()) {
-						moveCursorToSelectedCard();
-					}
-
-					mode = Mode::MUTATION_SELECT;
-				}
-				break;
 			}
 
-			if (pos != newpos) {
-				mutationCursor->setPos(newpos);
-				MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-
-				moveCursorToPos(newpos, 10);
-			}
+			mode = Mode::MUTATION_SELECT;
 		}
 		break;
-		case Mode::MUTATION_SELECT: {
-			switch (event.keyboard.keycode) {
-			case ALLEGRO_KEY_ENTER:
-			case ALLEGRO_KEY_PAD_ENTER:
-				if (selectedCard != cards.end()) {
+	}
 
-					moveCursorToPos(0, 20);
-					parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
-					MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
-					mode = Mode::POS_SELECT;
-				}
-				break;
-			case ALLEGRO_KEY_LEFT:
-			case ALLEGRO_KEY_UP:
-			case ALLEGRO_KEY_PGUP:
-			case ALLEGRO_KEY_W:
-			case ALLEGRO_KEY_A:
-			case ALLEGRO_KEY_PAD_4:
-			case ALLEGRO_KEY_PAD_8:
-				changeCardFocus(-1);
-				moveCursorToSelectedCard();
-				break;
-			case ALLEGRO_KEY_RIGHT:
-			case ALLEGRO_KEY_DOWN:
-			case ALLEGRO_KEY_PGDN:
-			case ALLEGRO_KEY_S:
-			case ALLEGRO_KEY_D:
-			case ALLEGRO_KEY_PAD_6:
-			case ALLEGRO_KEY_PAD_2:
-			case ALLEGRO_KEY_TAB:
-				changeCardFocus(+1);
-				moveCursorToSelectedCard();
-				break;
-			}
+	if (pos != newpos) {
+		mutationCursor->setPos(newpos);
+		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
+
+		moveCursorToPos(newpos, 10);
+	}
+}
+
+void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
+	// only respond to keyboard events...
+	if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
+	switch (event.keyboard.keycode) {
+	case ALLEGRO_KEY_ENTER:
+	case ALLEGRO_KEY_PAD_ENTER:
+		if (selectedCard != cards.end()) {
+
+			moveCursorToPos(0, 20);
+			parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
+			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
+			mode = Mode::POS_SELECT;
+		}
+		break;
+	case ALLEGRO_KEY_LEFT:
+	case ALLEGRO_KEY_UP:
+	case ALLEGRO_KEY_PGUP:
+	case ALLEGRO_KEY_W:
+	case ALLEGRO_KEY_A:
+	case ALLEGRO_KEY_PAD_4:
+	case ALLEGRO_KEY_PAD_8:
+		changeCardFocus(-1);
+		moveCursorToSelectedCard();
+		break;
+	case ALLEGRO_KEY_RIGHT:
+	case ALLEGRO_KEY_DOWN:
+	case ALLEGRO_KEY_PGDN:
+	case ALLEGRO_KEY_S:
+	case ALLEGRO_KEY_D:
+	case ALLEGRO_KEY_PAD_6:
+	case ALLEGRO_KEY_PAD_2:
+	case ALLEGRO_KEY_TAB:
+		changeCardFocus(+1);
+		moveCursorToSelectedCard();
+		break;
+	}
+}
+
+void Controller::handleEvent(ALLEGRO_EVENT &event) {
+
+	switch (mode) {
+		case Mode::POS_SELECT:
+			handleEventPosSelect(event);
+		break;
+		case Mode::MUTATION_SELECT: {
+			handleEventMutationSelect(event);
 		}
 		break;
 	}

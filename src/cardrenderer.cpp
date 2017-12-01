@@ -165,6 +165,84 @@ public:
 			info->bmpSimple = bmp2;
 		}
 	}
+
+	void drawMutationCards() {
+		for (int i = 0; i < NUM_MUTATIONS; ++i) {
+			MutationInfo *info = &mutationInfo[i];
+			ALLEGRO_BITMAP *bmp = drawMutationCard(info, static_cast<MutationId>(i));
+			stringstream ss;
+			ss << "MUT_" << info->name;
+			res->putBitmap(ss.str().c_str(), bmp);
+			info->card = bmp;
+		}
+	}
+
+	ALLEGRO_BITMAP *drawMutationCard (MutationInfo *info, MutationId mutationId) {
+		ALLEGRO_BITMAP *result = al_create_bitmap(MUTCARD_W, MUTCARD_H);
+		al_set_target_bitmap(result);
+
+		ALLEGRO_COLOR color = al_map_rgb_f(0, 0.5, 0);
+
+		double x1 = 0;
+		double y1 = 0;
+		double x2 = x1 + MUTCARD_W;
+		double y2 = y1 + MUTCARD_H;
+		al_draw_filled_rectangle(x1, y1, x2, y2, color);
+		al_draw_rectangle(x1, y1, x2, y2, GREEN, 1.0);
+
+		draw_shaded_textf(font, WHITE, GREY, x1 + 5, y1 + 5, ALLEGRO_ALIGN_LEFT, info->name.c_str());
+
+		drawLogo (mutationId, 40, 20);
+
+		return result;
+	}
+
+	void drawLogo (MutationId mutationId, int dx, int dy) {
+		const int SIZE = 6;
+		const int SIZE_2 = SIZE / 2;
+		const int SPACING = 6;
+		const int STEP = SIZE + SPACING;
+
+		int xx = dx;
+		int yy = dy;
+
+		int xm = xx + SIZE_2;
+		int ym = yy + SIZE_2;
+
+		switch (mutationId) {
+		case MutationId::TRANSVERSION:
+			al_draw_line (xm, ym, xm + STEP, ym + STEP, BLACK, 2.0);
+			al_draw_line (xm + STEP, ym, xm, ym + STEP, BLACK, 2.0);
+			break;
+		case MutationId::COMPLEMENT:
+			al_draw_line (xm, ym, xm, ym + STEP, BLACK, 2.0);
+			al_draw_line (xm + STEP, ym, xm + STEP, ym + STEP, BLACK, 2.0);
+			break;
+		case MutationId::TRANSITION:
+			al_draw_line (xm, ym, xm + STEP, ym, BLACK, 2.0);
+			al_draw_line (xm, ym + STEP, xm + STEP, ym + STEP, BLACK, 2.0);
+			break;
+		default: return; // don't draw any logo
+		}
+
+		drawOutlinedRect(xx, yy, xx + SIZE, yy + SIZE,
+				getNucleotideColor(NT::A, 1.0),
+				getNucleotideColor(NT::A, 0.5), 1.0);
+
+		drawOutlinedRect(xx + STEP, yy, xx + STEP + SIZE, yy + SIZE,
+				getNucleotideColor(NT::G, 1.0),
+				getNucleotideColor(NT::G, 0.5), 1.0);
+
+		drawOutlinedRect(xx, yy + STEP, xx + SIZE, yy + STEP + SIZE,
+				getNucleotideColor(NT::T, 1.0),
+				getNucleotideColor(NT::T, 0.5), 1.0);
+
+		drawOutlinedRect(xx + STEP, yy + STEP, xx + STEP + SIZE, yy + STEP + SIZE,
+				getNucleotideColor(NT::C, 1.0),
+				getNucleotideColor(NT::C, 0.5), 1.0);
+
+	}
+
 };
 
 void renderCards() {
@@ -172,5 +250,6 @@ void renderCards() {
 	renderer.drawNucleotideCards();
 	renderer.drawRibosome();
 	renderer.drawAminoAcidCards();
+	renderer.drawMutationCards();
 }
 

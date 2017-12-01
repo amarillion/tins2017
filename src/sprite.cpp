@@ -56,7 +56,6 @@ double sigmoid(double val) {
 }
 
 Sprite::Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true), awake(true) {
-	font = Engine::getResources()->getFont("builtin_font");
 }
 
 void Sprite::draw(const GraphicsContext &gc) {

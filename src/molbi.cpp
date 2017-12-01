@@ -33,6 +33,18 @@ AminoAcidInfo aminoAcidInfo[NUM_AMINO_ACIDS] = {
 	{ '*', "***", "Stop",          {"TAA", "TAG", "TGA"}, nullptr, nullptr }
 };
 
+MutationInfo mutationInfo[NUM_MUTATIONS] {
+	{ "TRANSVERSION", nullptr },
+	{ "TRANSITION", nullptr },
+	{ "COMPLEMENT", nullptr },
+	{ "REVERSE COMPLEMENT", nullptr },
+	{ "INSERT A", nullptr },
+	{ "INSERT C", nullptr },
+	{ "INSERT T", nullptr },
+	{ "INSERT_G", nullptr },
+	{ "DELETION", nullptr }
+};
+
 NT getNucleotideIndex(char c) {
 	switch(c) {
 	//TODO: use reverse lookup of NucleotideInfo instead of hard-coding order...
