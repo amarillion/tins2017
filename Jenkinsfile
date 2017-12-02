@@ -3,7 +3,7 @@ node {
 	catchError {
 		stage('CheckOut') {
 
-		   checkout scm
+			checkout scm
 
 		}
 		stage('Build') {
