@@ -102,22 +102,22 @@ $(OBJDIR)/%.d: ;
 
 CFLAGS_TEST = $(CFLAGS) `cppunit-config --cflags`
 LDFLAGS_TEST = `cppunit-config --libs`
-NAME_TEST = test_runner
+TESTBIN = $(BUILDDIR)/test_runner
 
 SRC_TEST = $(wildcard test/*.cpp)
 OBJ_TEST = $(patsubst %.cpp, $(OBJDIR)/%.o, $(notdir $(SRC_TEST)))
 
-$(NAME_TEST): $(OBJ_TEST) $(OBJ)
-	$(CXX) -o $(NAME_TEST) $(OBJ_TEST) $(OBJDIR)/molbi.o $(OBJDIR)/data.o $(LIBS) $(LDFLAGS_TEST) 
+$(TESTBIN): $(OBJ_TEST) $(OBJDIR)/molbi.o $(OBJDIR)/data.o
+	$(CXX) -o $(TESTBIN) $^ $(LIBS) $(LDFLAGS_TEST) 
 
 .PHONY: test
-test: $(NAME_TEST)
+test: $(TESTBIN)
 	echo Running test suite ...
-	./$(NAME_TEST)
+	./$(TESTBIN)
 
 .PHONY: clean
 clean:
-	-$(RM) $(OBJDIR)/*.o $(OBJDIR)/*.d
+	-$(RM) $(OBJDIR)/*.o $(OBJDIR)/*.d $(TESTBIN)
 
 .PHONY:distclean
 distclean: clean
