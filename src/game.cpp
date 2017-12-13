@@ -1083,8 +1083,8 @@ void Controller::addToWorld(const shared_ptr<Sprite> &val) {
 	parent->world.push_back(val);
 }
 
-
 void Controller::moveCursorToSelectedCard() {
+	if (selectedCard == cards.end()) return;
 	parent->world.move(mutationCursor,
 			(*selectedCard)->origX + MUTCARD_W - 24,
 			(*selectedCard)->origY + MUTCARD_H - 8,
@@ -1094,6 +1094,7 @@ void Controller::moveCursorToSelectedCard() {
 void Controller::moveCursorToPos(int pos, int speed) {
 	int newx = (SECTION_X + NT_STEPSIZE * pos);
 	parent->world.move(mutationCursor, newx, CURSOR_Y, speed);
+	mutationCursor->setPos(pos);
 }
 
 void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
@@ -1143,9 +1144,7 @@ void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
 	}
 
 	if (pos != newpos) {
-		mutationCursor->setPos(newpos);
 		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-
 		moveCursorToPos(newpos, 10);
 	}
 }
@@ -1157,7 +1156,6 @@ void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
 	case ALLEGRO_KEY_ENTER:
 	case ALLEGRO_KEY_PAD_ENTER:
 		if (selectedCard != cards.end()) {
-
 			moveCursorToPos(0, 20);
 			parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
 			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
