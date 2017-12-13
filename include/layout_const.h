@@ -17,6 +17,9 @@ const int NT_HEIGHT = 80;
 const int NT_SPACING = 8;
 const int NT_STEPSIZE = NT_WIDTH + NT_SPACING;
 
+const int MOVE_SPEED_LONG = 16;
+const int MOVE_SPEED_SHORT = 8;
+
 const int SECTION_X = 96;
 const int TARGET_PEPT_Y = 180;
 const int CURRENT_PEPT_Y = 280;

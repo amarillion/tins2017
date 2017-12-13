@@ -267,7 +267,7 @@ public:
 	void handleEventPosSelect(ALLEGRO_EVENT &event);
 	void handleEventMutationSelect(ALLEGRO_EVENT &event);
 
-	void moveCursorToSelectedCard();
+	void moveCursorToSelectedCard(int speed);
 	void moveCursorToPos(int pos, int speed);
 
 	void initMutationCards(vector<MutationId> mutations) {
@@ -1083,12 +1083,12 @@ void Controller::addToWorld(const shared_ptr<Sprite> &val) {
 	parent->world.push_back(val);
 }
 
-void Controller::moveCursorToSelectedCard() {
+void Controller::moveCursorToSelectedCard(int speed) {
 	if (selectedCard == cards.end()) return;
 	parent->world.move(mutationCursor,
 			(*selectedCard)->origX + MUTCARD_W - 24,
 			(*selectedCard)->origY + MUTCARD_H - 8,
-		20);
+		speed);
 }
 
 void Controller::moveCursorToPos(int pos, int speed) {
@@ -1118,9 +1118,8 @@ void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
 		break;
 	case ALLEGRO_KEY_ESCAPE:
 		// move card back to where it came from...
-		moveCursorToSelectedCard();
-		parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, 20);
-		moveCursorToSelectedCard();
+		parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, MOVE_SPEED_LONG);
+		moveCursorToSelectedCard(MOVE_SPEED_LONG);
 		mode = Mode::MUTATION_SELECT;
 		break;
 	case ALLEGRO_KEY_ENTER:
@@ -1135,7 +1134,7 @@ void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
 			selectedCard = cards.erase(selectedCard);
 			if (selectedCard == cards.end()) selectedCard = cards.begin();
 			if (selectedCard != cards.end()) {
-				moveCursorToSelectedCard();
+				moveCursorToSelectedCard(MOVE_SPEED_LONG);
 			}
 
 			mode = Mode::MUTATION_SELECT;
@@ -1145,7 +1144,7 @@ void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
 
 	if (pos != newpos) {
 		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-		moveCursorToPos(newpos, 10);
+		moveCursorToPos(newpos, MOVE_SPEED_SHORT);
 	}
 }
 
@@ -1156,8 +1155,8 @@ void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
 	case ALLEGRO_KEY_ENTER:
 	case ALLEGRO_KEY_PAD_ENTER:
 		if (selectedCard != cards.end()) {
-			moveCursorToPos(0, 20);
-			parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, 20);
+			moveCursorToPos(0, MOVE_SPEED_LONG);
+			parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, MOVE_SPEED_LONG);
 			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
 			mode = Mode::POS_SELECT;
 		}
@@ -1170,7 +1169,7 @@ void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
 	case ALLEGRO_KEY_PAD_4:
 	case ALLEGRO_KEY_PAD_8:
 		changeCardFocus(-1);
-		moveCursorToSelectedCard();
+		moveCursorToSelectedCard(MOVE_SPEED_SHORT);
 		break;
 	case ALLEGRO_KEY_RIGHT:
 	case ALLEGRO_KEY_DOWN:
@@ -1181,7 +1180,7 @@ void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
 	case ALLEGRO_KEY_PAD_2:
 	case ALLEGRO_KEY_TAB:
 		changeCardFocus(+1);
-		moveCursorToSelectedCard();
+		moveCursorToSelectedCard(MOVE_SPEED_SHORT);
 		break;
 	}
 }
