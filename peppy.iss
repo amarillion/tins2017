@@ -1,6 +1,8 @@
+#include "include\version.h"
+
 [Setup]
 AppName=Peppy Protein Puzzle
-AppVerName=Peppy Protein Puzzle v0.1
+AppVerName=Peppy Protein Puzzle {#APPLICATION_VERSION}
 AppPublisher=Helixsoft.nl
 AppPublisherURL=http://www.helixsoft.nl
 DefaultDirName={pf}\Helixsoft.nl\PeppyProteinPuzzle
@@ -9,9 +11,9 @@ UninstallDisplayIcon={app}\peppy.exe
 Compression=lzma
 SolidCompression=yes
 #ifdef DEBUG
-OutputBaseFilename=Install_PeppyProteinPuzzle-Debug
+OutputBaseFilename=Install_PeppyProteinPuzzle-Debug-{#APPLICATION_VERSION}
 #else
-OutputBaseFilename=Install_PeppyProteinPuzzle
+OutputBaseFilename=Install_PeppyProteinPuzzle-{#APPLICATION_VERSION}
 #endif
 OutputDir=dist
 
