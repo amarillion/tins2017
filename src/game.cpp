@@ -247,98 +247,7 @@ public:
 	MutationId getMutationId() { return mutationId; }
 };
 
-enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, PLAYER_CONTROL, MUTATION_SELECT, POS_SELECT };
-
-class Controller : public Container {
-private:
-	GameImpl *parent;
-	list<shared_ptr<MutationCardSprite>> cards;
-	shared_ptr<MutationCursor> mutationCursor;
-	list<shared_ptr<MutationCardSprite>>::iterator selectedCard;
-	Mode mode;
-public:
-	Controller(GameImpl *parent) : parent(parent), mode(Mode::MUTATION_SELECT) {
-	}
-
-	// wrappers for GameImpl functions, so we can keep the main body here...
-	void addToWorld(const shared_ptr<Sprite> &val);
-
-	void handleEvent(ALLEGRO_EVENT &event);
-	void handleEventPosSelect(ALLEGRO_EVENT &event);
-	void handleEventMutationSelect(ALLEGRO_EVENT &event);
-
-	void moveCursorToSelectedCard(int speed);
-	void moveCursorToPos(int pos, int speed);
-
-	void initMutationCards(vector<MutationId> mutations) {
-
-		// clear any remainder from previous level...
-		for (auto i : cards) {
-			i->kill();
-		}
-		cards.clear();
-		mode = Mode::MUTATION_SELECT;
-
-		int yco = gety();
-
-		int i = 0;
-
-		for (auto mut : mutations) {
-			int xco = getx();
-			if (i % 2 == 0) { xco += BUTTONW + 10; }
-
-			auto mutCard = make_shared<MutationCardSprite>(mut, xco, yco);
-
-			addToWorld(mutCard);
-
-			if (i % 2 == 1) {
-				yco += MUTCARD_H + 4;
-			}
-
-			cards.push_back(mutCard);
-			i++;
-		}
-
-		selectedCard = cards.begin();
-
-		if (mutationCursor) { mutationCursor->kill(); }
-		mutationCursor = make_shared<MutationCursor>(parent);
-		addToWorld(mutationCursor);
-		mutationCursor->setxy((*selectedCard)->origX + MUTCARD_W - 24, (*selectedCard)->origY + MUTCARD_H - 8);
-	}
-
-	void changeCardFocus(int delta) {
-		if (cards.size() == 0) return;
-
-		int maxIt = cards.size();
-		auto oldSelectedCard = selectedCard;
-
-		if (selectedCard == cards.end()) selectedCard = cards.begin();
-
-		while (selectedCard != cards.end() && maxIt >= 0) {
-			if (delta > 0) {
-				selectedCard++;
-				if (selectedCard == cards.end()) selectedCard = cards.begin();
-			}
-			else {
-				if (selectedCard == cards.begin()) {
-					// TODO - ugly. No good way to wrap a bidirectional iterator?
-					for (size_t i = 0; i < cards.size() - 1; ++i) { selectedCard++; }
-				} else {
-					selectedCard--;
-				}
-			}
-			maxIt--;
-		}
-
-		if (oldSelectedCard != selectedCard) {
-			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-		}
-	}
-
-	// no draw method... just controlling the game
-
-};
+enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, MUTATION_SELECT, POS_SELECT };
 
 class TextBalloon : public IComponent {
 
@@ -378,7 +287,10 @@ private:
 	PeptideModel currentPeptide;
 	vector<MutationId> currentMutationCards; // TODO: also as model?
 
-	shared_ptr<Controller> menu;
+	ContainerPtr mutationGroup; // used to calculate layout of mutation cards, does not actully contain them.
+	list<shared_ptr<MutationCardSprite>> cards;
+	shared_ptr<MutationCursor> mutationCursor;
+	list<shared_ptr<MutationCardSprite>>::iterator selectedCard;
 
 	shared_ptr<Text> drText;
 
@@ -392,8 +304,40 @@ private:
 	Script::iterator currentScriptEnd;
 
 	bool uiEnabled = true;
-	Mode mode = Mode::SCRIPT_RUNNING;
 public:
+
+	void changeCardFocus(int delta) {
+		if (cards.size() == 0) return;
+
+		int maxIt = cards.size();
+		auto oldSelectedCard = selectedCard;
+
+		if (selectedCard == cards.end()) selectedCard = cards.begin();
+
+		while (selectedCard != cards.end() && maxIt >= 0) {
+			if (delta > 0) {
+				selectedCard++;
+				if (selectedCard == cards.end()) selectedCard = cards.begin();
+			}
+			else {
+				if (selectedCard == cards.begin()) {
+					// TODO - ugly. No good way to wrap a bidirectional iterator?
+					for (size_t i = 0; i < cards.size() - 1; ++i) { selectedCard++; }
+				} else {
+					selectedCard--;
+				}
+			}
+			maxIt--;
+		}
+
+		if (oldSelectedCard != selectedCard) {
+			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
+		}
+	}
+
+	// no draw method... just controlling the game
+	//TODO: make private
+	Mode mode = Mode::SCRIPT_RUNNING;
 
 	bool hasSavedLevel() override {
 		int lev = get_config_int (MainLoop::getMainLoop()->getConfig(), "peppy", "currentLevel", -1);
@@ -434,11 +378,6 @@ public:
 			Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "Gene:").font(builtin_font).xy(10, GENE_Y).get()
 		);
 
-		menu = make_shared<Controller>(this);
-		menu->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, (BUTTONW * 2) + 30, (BUTTONH + 10) * 8);
-		add(menu);
-		setFocus(menu);
-
 		currentDNA.AddListener( [=] (int code, int pos) {
 			currentPeptide.setValue(currentDNA.translate());
 
@@ -469,6 +408,10 @@ public:
 		targetPeptide.AddListener( [=] (int code) {
 			peptideToSprites(targetPeptide, targetPeptideGroup, SECTION_X, TARGET_PEPT_Y, true);
 		});
+
+		mutationGroup = make_shared<Container>();
+		mutationGroup->setLayout(Layout::RIGHT_BOTTOM_W_H, 10, 10, (BUTTONW * 2) + 30, (BUTTONH + 10) * 8);
+		add(mutationGroup);
 
 		auto button = Button::build([=](){ resetLevel(); }, "Reset (F1)")
 			.layout(Layout::RIGHT_BOTTOM_W_H, 10, 10, 120, 24).get();
@@ -879,7 +822,7 @@ public:
 		drText->onAnimationComplete([=] () {
 
 			if (currentScript == currentScriptEnd) {
-				mode = Mode::PLAYER_CONTROL;
+				mode = Mode::MUTATION_SELECT;
 			}
 			else {
 				mode = Mode::WAIT_FOR_KEY;
@@ -895,7 +838,7 @@ public:
 		{
 
 			if (currentScript == currentScriptEnd) {
-				mode = Mode::PLAYER_CONTROL;
+				mode = Mode::MUTATION_SELECT;
 				break;
 			}
 				// execute step
@@ -948,7 +891,7 @@ public:
 		LevelInfo *lev = &levelInfo[currentLevel];
 
 		currentMutationCards = lev->mutationCards;
-		menu->initMutationCards(currentMutationCards);
+		initMutationCards(currentMutationCards);
 
 		currentDNA.setValue(lev->startGene);
 
@@ -1039,20 +982,23 @@ public:
 			}
 		}
 		else {
-			switch (mode) {
-			case Mode::PLAYER_CONTROL:
-				Container::handleEvent(event);
-
-				if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
-					switch (event.keyboard.keycode) {
-						case ALLEGRO_KEY_F2:
-							showCodonTable();
-							break;
-						case ALLEGRO_KEY_F1:
-							resetLevel();
-							break;
-					}
+			Container::handleEvent(event);
+			if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+				switch (event.keyboard.keycode) {
+					case ALLEGRO_KEY_F2:
+						showCodonTable();
+						break;
+					case ALLEGRO_KEY_F1:
+						resetLevel();
+						break;
 				}
+			}
+			switch (mode) {
+			case Mode::POS_SELECT:
+				handleEventPosSelect(event);
+				break;
+			case Mode::MUTATION_SELECT:
+				handleEventMutationSelect(event);
 				break;
 			case Mode::SCRIPT_RUNNING:
 				break;
@@ -1066,6 +1012,145 @@ public:
 
 			}
 		}
+	}
+
+	void moveCursorToSelectedCard(int speed) {
+		if (selectedCard == cards.end()) return;
+		world.move(mutationCursor,
+				(*selectedCard)->origX + MUTCARD_W - 24,
+				(*selectedCard)->origY + MUTCARD_H - 8,
+			speed);
+	}
+
+	void moveCursorToPos(int pos, int speed) {
+		int newx = (SECTION_X + NT_STEPSIZE * pos);
+		world.move(mutationCursor, newx, CURSOR_Y, speed);
+		mutationCursor->setPos(pos);
+	}
+
+	void handleEventPosSelect(ALLEGRO_EVENT &event) {
+		// only respond to keyboard events...
+		if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
+
+		int pos = mutationCursor->getPos();
+		int newpos = pos;
+
+		switch (event.keyboard.keycode) {
+		case ALLEGRO_KEY_LEFT:
+		case ALLEGRO_KEY_A:
+		case ALLEGRO_KEY_PAD_4:
+		case ALLEGRO_KEY_TAB:
+			newpos = max (0, pos-1);
+			break;
+		case ALLEGRO_KEY_RIGHT:
+		case ALLEGRO_KEY_D:
+		case ALLEGRO_KEY_PAD_6:
+			newpos = min(pos+1, getOligoSize() - 1);
+			break;
+		case ALLEGRO_KEY_ESCAPE:
+			// move card back to where it came from...
+			world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, MOVE_SPEED_LONG);
+			moveCursorToSelectedCard(MOVE_SPEED_LONG);
+			mode = Mode::MUTATION_SELECT;
+			break;
+		case ALLEGRO_KEY_ENTER:
+		case ALLEGRO_KEY_PAD_ENTER:
+			if (!isUIEnabled()) {
+				//TODO: error buzzer sample
+			}
+			else {
+				applyMutation(pos, (*selectedCard)->getMutationId());
+
+				(*selectedCard)->kill();
+				selectedCard = cards.erase(selectedCard);
+				if (selectedCard == cards.end()) selectedCard = cards.begin();
+				if (selectedCard != cards.end()) {
+					moveCursorToSelectedCard(MOVE_SPEED_LONG);
+				}
+
+				mode = Mode::MUTATION_SELECT;
+			}
+			break;
+		}
+
+		if (pos != newpos) {
+			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
+			moveCursorToPos(newpos, MOVE_SPEED_SHORT);
+		}
+	}
+
+	void handleEventMutationSelect(ALLEGRO_EVENT &event) {
+		// only respond to keyboard events...
+		if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
+		switch (event.keyboard.keycode) {
+		case ALLEGRO_KEY_ENTER:
+		case ALLEGRO_KEY_PAD_ENTER:
+			if (selectedCard != cards.end()) {
+				moveCursorToPos(0, MOVE_SPEED_LONG);
+				world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, MOVE_SPEED_LONG);
+				MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
+				mode = Mode::POS_SELECT;
+			}
+			break;
+		case ALLEGRO_KEY_LEFT:
+		case ALLEGRO_KEY_UP:
+		case ALLEGRO_KEY_PGUP:
+		case ALLEGRO_KEY_W:
+		case ALLEGRO_KEY_A:
+		case ALLEGRO_KEY_PAD_4:
+		case ALLEGRO_KEY_PAD_8:
+			changeCardFocus(-1);
+			moveCursorToSelectedCard(MOVE_SPEED_SHORT);
+			break;
+		case ALLEGRO_KEY_RIGHT:
+		case ALLEGRO_KEY_DOWN:
+		case ALLEGRO_KEY_PGDN:
+		case ALLEGRO_KEY_S:
+		case ALLEGRO_KEY_D:
+		case ALLEGRO_KEY_PAD_6:
+		case ALLEGRO_KEY_PAD_2:
+		case ALLEGRO_KEY_TAB:
+			changeCardFocus(+1);
+			moveCursorToSelectedCard(MOVE_SPEED_SHORT);
+			break;
+		}
+	}
+
+	void initMutationCards(vector<MutationId> mutations) {
+
+		// clear any remainder from previous level...
+		for (auto i : cards) {
+			i->kill();
+		}
+		cards.clear();
+		mode = Mode::MUTATION_SELECT;
+
+		int yco = mutationGroup->gety();
+
+		int i = 0;
+
+		for (auto mut : mutations) {
+			int xco = mutationGroup->getx();
+			if (i % 2 == 0) { xco += BUTTONW + 10; }
+
+			auto mutCard = make_shared<MutationCardSprite>(mut, xco, yco);
+
+			world.push_back(mutCard);
+
+			if (i % 2 == 1) {
+				yco += MUTCARD_H + 4;
+			}
+
+			cards.push_back(mutCard);
+			i++;
+		}
+
+		selectedCard = cards.begin();
+
+		if (mutationCursor) { mutationCursor->kill(); }
+		mutationCursor = make_shared<MutationCursor>(this);
+		world.push_back(mutationCursor);
+		mutationCursor->setxy((*selectedCard)->origX + MUTCARD_W - 24, (*selectedCard)->origY + MUTCARD_H - 8);
 	}
 
 };
@@ -1113,124 +1198,5 @@ void Ribosome::nextAnimation() {
 
 		auto animator = make_shared <MoveAnimator<sigmoid> >(shared_from_this(), xco, yco, 50);
 		parent->world.push_back(animator);
-	}
-}
-
-void Controller::addToWorld(const shared_ptr<Sprite> &val) {
-	parent->world.push_back(val);
-}
-
-void Controller::moveCursorToSelectedCard(int speed) {
-	if (selectedCard == cards.end()) return;
-	parent->world.move(mutationCursor,
-			(*selectedCard)->origX + MUTCARD_W - 24,
-			(*selectedCard)->origY + MUTCARD_H - 8,
-		speed);
-}
-
-void Controller::moveCursorToPos(int pos, int speed) {
-	int newx = (SECTION_X + NT_STEPSIZE * pos);
-	parent->world.move(mutationCursor, newx, CURSOR_Y, speed);
-	mutationCursor->setPos(pos);
-}
-
-void Controller::handleEventPosSelect(ALLEGRO_EVENT &event) {
-	// only respond to keyboard events...
-	if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
-
-	int pos = mutationCursor->getPos();
-	int newpos = pos;
-
-	switch (event.keyboard.keycode) {
-	case ALLEGRO_KEY_LEFT:
-	case ALLEGRO_KEY_A:
-	case ALLEGRO_KEY_PAD_4:
-	case ALLEGRO_KEY_TAB:
-		newpos = max (0, pos-1);
-		break;
-	case ALLEGRO_KEY_RIGHT:
-	case ALLEGRO_KEY_D:
-	case ALLEGRO_KEY_PAD_6:
-		newpos = min(pos+1, parent->getOligoSize() - 1);
-		break;
-	case ALLEGRO_KEY_ESCAPE:
-		// move card back to where it came from...
-		parent->world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, MOVE_SPEED_LONG);
-		moveCursorToSelectedCard(MOVE_SPEED_LONG);
-		mode = Mode::MUTATION_SELECT;
-		break;
-	case ALLEGRO_KEY_ENTER:
-	case ALLEGRO_KEY_PAD_ENTER:
-		if (!parent->isUIEnabled()) {
-			//TODO: error buzzer sample
-		}
-		else {
-			parent->applyMutation(pos, (*selectedCard)->getMutationId());
-
-			(*selectedCard)->kill();
-			selectedCard = cards.erase(selectedCard);
-			if (selectedCard == cards.end()) selectedCard = cards.begin();
-			if (selectedCard != cards.end()) {
-				moveCursorToSelectedCard(MOVE_SPEED_LONG);
-			}
-
-			mode = Mode::MUTATION_SELECT;
-		}
-		break;
-	}
-
-	if (pos != newpos) {
-		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_movecursor"));
-		moveCursorToPos(newpos, MOVE_SPEED_SHORT);
-	}
-}
-
-void Controller::handleEventMutationSelect(ALLEGRO_EVENT &event) {
-	// only respond to keyboard events...
-	if (event.type != ALLEGRO_EVENT_KEY_CHAR) return;
-	switch (event.keyboard.keycode) {
-	case ALLEGRO_KEY_ENTER:
-	case ALLEGRO_KEY_PAD_ENTER:
-		if (selectedCard != cards.end()) {
-			moveCursorToPos(0, MOVE_SPEED_LONG);
-			parent->world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, MOVE_SPEED_LONG);
-			MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
-			mode = Mode::POS_SELECT;
-		}
-		break;
-	case ALLEGRO_KEY_LEFT:
-	case ALLEGRO_KEY_UP:
-	case ALLEGRO_KEY_PGUP:
-	case ALLEGRO_KEY_W:
-	case ALLEGRO_KEY_A:
-	case ALLEGRO_KEY_PAD_4:
-	case ALLEGRO_KEY_PAD_8:
-		changeCardFocus(-1);
-		moveCursorToSelectedCard(MOVE_SPEED_SHORT);
-		break;
-	case ALLEGRO_KEY_RIGHT:
-	case ALLEGRO_KEY_DOWN:
-	case ALLEGRO_KEY_PGDN:
-	case ALLEGRO_KEY_S:
-	case ALLEGRO_KEY_D:
-	case ALLEGRO_KEY_PAD_6:
-	case ALLEGRO_KEY_PAD_2:
-	case ALLEGRO_KEY_TAB:
-		changeCardFocus(+1);
-		moveCursorToSelectedCard(MOVE_SPEED_SHORT);
-		break;
-	}
-}
-
-void Controller::handleEvent(ALLEGRO_EVENT &event) {
-
-	switch (mode) {
-		case Mode::POS_SELECT:
-			handleEventPosSelect(event);
-		break;
-		case Mode::MUTATION_SELECT: {
-			handleEventMutationSelect(event);
-		}
-		break;
 	}
 }
