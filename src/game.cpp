@@ -992,7 +992,28 @@ public:
 		pauseComponents(false);
 	}
 
+	string keyBuffer = "";
+	string levelCheatPrefix = "idclev";
+
+	void checkCheatCode(ALLEGRO_EVENT &event) {
+		if (event.type == ALLEGRO_EVENT_KEY_CHAR) {
+			keyBuffer.push_back(event.keyboard.unichar);
+			if (keyBuffer.size() > 8) {
+				keyBuffer = keyBuffer.substr(1);
+			}
+
+			if (keyBuffer.substr(0, 6) == levelCheatPrefix) {
+				int lev = stoi(keyBuffer.substr(6, 2));
+				if (lev > 0 && lev <= NUM_LEVELS) {
+					currentLevel = lev - 1;
+					initLevelAndScript();
+				}
+			}
+		}
+	}
+
 	virtual void handleEvent(ALLEGRO_EVENT &event) override {
+		checkCheatCode(event);
 
 		if (popup) {
 			if (event.type == ALLEGRO_EVENT_KEY_CHAR ||
