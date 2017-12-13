@@ -13,6 +13,9 @@ public:
 	virtual void handleEvent(ALLEGRO_EVENT &event) override = 0;
 
 	virtual void initGame() = 0;
+	virtual bool hasSavedLevel() = 0;
+	virtual void loadCurrentLevel() = 0;
+
 	static std::shared_ptr<Game> newInstance();
 
 	virtual std::string const className() const override { return "Game"; }

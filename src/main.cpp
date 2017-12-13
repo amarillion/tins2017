@@ -10,8 +10,8 @@ int main(int argc, const char *const *argv)
 
 	mainloop
 		.setEngine(engine)
-		.setTitle("TINS 2017!")
-		.setAppName("tins17");
+		.setTitle("Peppy Protein Puzzle")
+		.setAppName("peppy");
 
 	mainloop.setPreferredResolution(960, 600);
 

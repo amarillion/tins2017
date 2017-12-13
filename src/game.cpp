@@ -395,6 +395,19 @@ private:
 	Mode mode = Mode::SCRIPT_RUNNING;
 public:
 
+	bool hasSavedLevel() override {
+		int lev = get_config_int (MainLoop::getMainLoop()->getConfig(), "peppy", "currentLevel", -1);
+		return (lev != -1);
+	}
+
+	void loadCurrentLevel() override {
+		currentLevel = get_config_int (MainLoop::getMainLoop()->getConfig(), "peppy", "currentLevel", 0);
+	}
+
+	void saveCurrentLevel() {
+		set_config_int (MainLoop::getMainLoop()->getConfig(), "peppy", "currentLevel", currentLevel);
+	}
+
 	bool isUIEnabled() { return uiEnabled; }
 
 	GameImpl() : currentLevel(0), world() {
@@ -696,7 +709,10 @@ public:
 		}
 		else {
 			showVictoryMessage("Level Complete! Press any key...",
-					[=] () { initLevelAndScript(); } );
+					[=] () {
+				saveCurrentLevel();
+				initLevelAndScript();
+			} );
 		}
 	}
 

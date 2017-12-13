@@ -12,6 +12,7 @@ using namespace std;
 class EngineImpl : public Engine {
 private:
 	MenuListPtr mMain;
+	MenuItemPtr menuLoad;
 	std::shared_ptr<AnimComponent> bunny;
 	shared_ptr<UpdateChecker> updates;
 public:
@@ -65,12 +66,17 @@ public:
 		initMenu();
 
 		setFocus(mMain);
+		if (game->hasSavedLevel()) {
+			mMain->setSelectedItem(menuLoad);
+		}
 	}
 
 	void initMenu()
 	{
+		menuLoad = make_shared<ActionMenuItem> (E_LOAD, "Continue game", "Continue where you left off");
 		mMain = MenuBuilder(this, NULL)
-			.push_back (make_shared<ActionMenuItem> (E_START, "Start", "Start a new game"))
+			.push_back (make_shared<ActionMenuItem> (E_START, "Start game", "Start a new game"))
+			.push_back (menuLoad)
 			.push_back (make_shared<ActionMenuItem> (E_BEFORE_QUIT, "Quit", "Exit"))
 			.push_back (make_shared<ActionMenuItem> (E_TOGGLE_FULLSCREEN, "Toggle Fullscreen", "Switch fullscreen / windowed mode"))
 			.build();
@@ -79,6 +85,10 @@ public:
 		bunny = AnimComponent::build(resources->getAnim("intro")).layout(Layout::LEFT_TOP_W_H, 50, 50, 300, 200).get();
 		mMain->add(bunny);
 		add (mMain);
+
+		if (!game->hasSavedLevel()) {
+			menuLoad->setEnabled(false);
+		}
 	}
 
 	~EngineImpl() {
@@ -108,6 +118,9 @@ public:
 		case E_TOGGLE_FULLSCREEN:
 			MainLoop::getMainLoop()->toggleWindowed();
 			break;
+		case E_LOAD:
+			game->loadCurrentLevel();
+			// intentional fall-through
 		case E_START:
 			bunny->setState(1);
 			mMain->setAwake(false);
