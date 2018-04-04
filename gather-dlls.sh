@@ -31,6 +31,7 @@ do
 	cp $BASE/zlib1.dll $DEST
 	cp $BASE/libwinpthread-1.dll $DEST
 	cp $BASE/libiconv-2.dll $DEST
+	cp $BASE/libidn2-0.dll $DEST
 	cp $BASE/libgraphite2.dll $DEST
 	cp $BASE/libpcre-1.dll $DEST
 	cp $BASE/libcurl-4.dll $DEST
@@ -41,7 +42,6 @@ do
 	cp $BASE/libgnutls-30.dll $DEST
 	cp $BASE/libp11-kit-0.dll $DEST
 	cp $BASE/libtasn1-6.dll $DEST
-	cp $BASE/libidn-11.dll $DEST
 	cp $BASE/libhogweed-4.dll $DEST
 	cp $BASE/libffi-6.dll $DEST
 	cp $BASE/LIBEAY32.dll $DEST

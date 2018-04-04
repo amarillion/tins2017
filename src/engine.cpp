@@ -11,7 +11,7 @@ using namespace std;
 
 class EngineImpl : public Engine {
 private:
-	MenuListPtr mMain;
+	MenuScreenPtr mMain;
 	MenuItemPtr menuLoad;
 	std::shared_ptr<AnimComponent> bunny;
 	shared_ptr<UpdateChecker> updates;
