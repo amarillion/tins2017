@@ -108,7 +108,7 @@ public:
 		Container::handleEvent(event);
 	}
 
-	void handleMessage(shared_ptr<IComponent> src, int event)
+	void handleMessage(ComponentPtr src, int event)
 	{
 		switch (event)
 		{

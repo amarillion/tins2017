@@ -13,7 +13,7 @@ int main(int argc, const char *const *argv)
 		.setTitle("Peppy Protein Puzzle")
 		.setAppName("peppy");
 
-	mainloop.setPreferredResolution(960, 600);
+	mainloop.setPreferredGameResolution(960, 600);
 
 	mainloop.init(argc, argv);
 	engine->init();

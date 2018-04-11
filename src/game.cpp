@@ -26,7 +26,7 @@
 
 using namespace std;
 
-class CodonTableView : public IComponent {
+class CodonTableView : public Component {
 
 	virtual void draw(const GraphicsContext &gc) override {
 
@@ -122,7 +122,7 @@ public:
 };
 
 // TODO: add to TextComponent...
-class TextCursorComponent : public IComponent {
+class TextCursorComponent : public Component {
 
 	int counter = 0;
 public:
@@ -249,7 +249,7 @@ public:
 
 enum class Mode { SCRIPT_RUNNING, WAIT_FOR_KEY, MUTATION_SELECT, POS_SELECT };
 
-class TextBalloon : public IComponent {
+class TextBalloon : public Component {
 
 	virtual void draw (const GraphicsContext &gc) override {
 		const double shadow = 10;
