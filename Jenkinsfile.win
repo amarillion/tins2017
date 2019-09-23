@@ -1,0 +1,38 @@
+node {
+
+	catchError {
+		stage('CheckOut') {
+
+			checkout scm
+
+		}
+		stage('Build') {
+			def TWIST_HOME = "${env.JENKINS_WORKSPACE}/jobs/tegel-allegro5/workspace"
+			// def TEGEL_HOME = "${env.JENKINS_HOME}/jobs/twist5/workspace"
+
+			echo "Running ${env.BUILD_ID} on ${env.JENKINS_URL}. Tegel home is $TEGEL_HOME"
+
+			sh "make WINDOWS=1 BUILD=RELEASE TEGEL_HOME=${TEGEL_HOME}\build
+		}
+		stage('Bundle') {
+			sh ./gather-dlls.sh
+			sh zipper.bat -f zip win
+		}
+		stage('Installer') {
+			sh "C:\program files (x86)\Inno Setup 5\iscc.exe" %WORKSPACE%\fashionista.iss
+		}
+	}
+
+//	mailIfStatusChanged env.EMAIL_RECIPIENTS
+	mailIfStatusChanged "mvaniersel@gmail.com"
+}
+
+//see: https://github.com/triologygmbh/jenkinsfile/blob/4b-scripted/Jenkinsfile
+def mailIfStatusChanged(String recipients) {
+    
+	// Also send "back to normal" emails. Mailer seems to check build result, but SUCCESS is not set at this point.
+    if (currentBuild.currentResult == 'SUCCESS') {
+        currentBuild.result = 'SUCCESS'
+    }
+    step([$class: 'Mailer', recipients: recipients])
+}
