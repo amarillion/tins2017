@@ -12,6 +12,7 @@ LFLAGS =
 LIBS= -lcurl
 NAME=peppy
 
+# Adjust build directory name based on platform
 ifdef WINDOWS
 	PLATFORMSUF = _win
 else
