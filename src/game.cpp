@@ -23,6 +23,7 @@
 #include "layout_const.h"
 #include "level.h"
 #include "analyzer.h"
+#include "metrics.h"
 
 using namespace std;
 
@@ -274,6 +275,7 @@ private:
 public:
 	SpriteGroup world;
 private:
+	shared_ptr<Metrics> metrics;
 
 	// positions in this vector should match the current DNAmodel...
 	vector<shared_ptr<NucleotideSprite>> geneByPosition;
@@ -354,7 +356,7 @@ public:
 
 	bool isUIEnabled() { return uiEnabled; }
 
-	GameImpl() : currentLevel(0), world() {
+	GameImpl(shared_ptr<Metrics> metrics) : metrics(metrics), currentLevel(0), world() {
 
 		targetPeptideGroup = make_shared<SpriteGroup>();
 		currentPeptideGroup = make_shared<SpriteGroup>();
@@ -641,6 +643,9 @@ public:
 	}
 
 	void advanceLevel() {
+		// submit metrics
+		metrics->logAchievement(std::to_string(currentLevel));
+
 		currentLevel++;
 
 		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_laser"));
@@ -1155,9 +1160,9 @@ public:
 
 };
 
-shared_ptr<Game> Game::newInstance()
+shared_ptr<Game> Game::newInstance(shared_ptr<Metrics> metrics)
 {
-	return make_shared<GameImpl>();
+	return make_shared<GameImpl>(metrics);
 }
 
 

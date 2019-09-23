@@ -6,6 +6,7 @@
 #include "updatechecker.h"
 #include "version.h"
 #include "fileutil.h"
+#include "metrics.h"
 
 using namespace std;
 
@@ -15,8 +16,13 @@ private:
 	MenuItemPtr menuLoad;
 	std::shared_ptr<AnimComponent> bunny;
 	shared_ptr<UpdateChecker> updates;
+	std::shared_ptr<Metrics> metrics;
 public:
 	std::shared_ptr<Game> game;
+
+	virtual void logAchievement(const std::string &id) override {
+		metrics->logAchievement(id);
+	}
 
 	virtual void draw(const GraphicsContext &gc) {
 		focus->draw(gc);
@@ -58,8 +64,10 @@ public:
 		updates = UpdateChecker::newInstance(cacheDir, APPLICATION_VERSION, Engine::E_QUIT);
 	 	add (updates, Container::FLAG_SLEEP);
 	 	updates->start_check_thread("peppy", "en");
+	 	metrics = Metrics::newInstance("peppy", APPLICATION_VERSION);
+		metrics->logSessionStart();
 
-		game = Game::newInstance();
+		game = Game::newInstance(metrics);
 		game->init();
 		add(game, Container::FLAG_SLEEP);
 
@@ -132,8 +140,10 @@ public:
 			break;
 		case E_BEFORE_QUIT:
 			setFocus(updates);
+			metrics->logSessionClose();
 			break;
 		case E_QUIT:
+			metrics->done();
 			pushMsg(MSG_CLOSE);
 			break;
 		}

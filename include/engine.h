@@ -10,6 +10,7 @@ protected:
 	static Resources *resources;
 	static bool debugMode;
 public:
+	virtual void logAchievement(const std::string &id) = 0;
 	virtual void init() = 0; // call once during startup
 	static Resources* getResources() { return resources; }
 	static bool isDebug() { return debugMode; }

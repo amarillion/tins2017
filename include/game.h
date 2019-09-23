@@ -3,6 +3,8 @@
 
 #include "state.h"
 
+class Metrics;
+
 class Game : public State
 {
 public:
@@ -16,7 +18,7 @@ public:
 	virtual bool hasSavedLevel() = 0;
 	virtual void loadCurrentLevel() = 0;
 
-	static std::shared_ptr<Game> newInstance();
+	static std::shared_ptr<Game> newInstance(std::shared_ptr<Metrics> metrics);
 
 	virtual std::string const className() const override { return "Game"; }
 };
