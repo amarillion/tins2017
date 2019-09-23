@@ -44,10 +44,17 @@ do
 	cp $BASE/libtasn1-6.dll $DEST
 	cp $BASE/libhogweed-4.dll $DEST
 	cp $BASE/libffi-6.dll $DEST
-	cp $BASE/LIBEAY32.dll $DEST
-	cp $BASE/SSLEAY32.dll $DEST
 	cp $BASE/libnghttp2-14.dll $DEST
 	cp $BASE/libunistring-2.dll $DEST
+# No longer in Mys2 as of 2019-01-01
+#	cp $BASE/LIBEAY32.dll $DEST
+#	cp $BASE/SSLEAY32.dll $DEST
+# Below are new Msys2 dependencies as of 2019-01-01 
+	cp $BASE/libbrotlidec.dll $DEST
+	cp $BASE/libbrotlicommon.dll $DEST
+	cp $BASE/libcrypto-1_1.dll $DEST
+	cp $BASE/libpsl-5.dll $DEST
+	cp $BASE/libssl-1_1.dll $DEST
 	cp $WINDOWS_BASE/xinput1_3.dll $DEST
 
 	echo Checking $DEST/*.exe
