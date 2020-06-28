@@ -24,6 +24,7 @@
 #include "level.h"
 #include "analyzer.h"
 #include "metrics.h"
+#include "resources.h"
 
 using namespace std;
 
@@ -423,7 +424,7 @@ public:
 			.layout(Layout::LEFT_BOTTOM_W_H, 10, 10, 120, 24).get();
 		add(b3);
 
-		Resources *res = Engine::getResources();
+		auto res = Engine::getResources();
 		auto img1 = BitmapComp::build(res->getBitmap("DrRaul01")).xywh(0, 10, 130, 130).get();
 		add(img1);
 
@@ -742,7 +743,7 @@ public:
 		auto t1 = Text::build(WHITE, ALLEGRO_ALIGN_CENTER, string(text)).layout (Layout::LEFT_TOP_RIGHT_H, 0, 50, 0, 100).get();
 		popup->add (t1);
 
-		Resources *res = Engine::getResources();
+		auto res = Engine::getResources();
 		auto img2 = AnimComponent::build(res->getAnim("dance")).layout(Layout::CENTER_TOP_W_H, 0, 100, 64, 64).get();
 		popup->add(img2);
 

@@ -2,6 +2,7 @@
 #include "engine.h"
 #include "mainloop.h"
 #include "easing.h"
+#include "anim.h"
 
 using namespace std;
 

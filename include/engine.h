@@ -1,18 +1,19 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include "game.h"
-#include "resources.h"
+#include <memory>
 #include "container.h"
+
+class Resources;
 
 class Engine : public Container {
 protected:
-	static Resources *resources;
+	static std::shared_ptr<Resources> resources;
 	static bool debugMode;
 public:
 	virtual void logAchievement(const std::string &id) = 0;
 	virtual void init() = 0; // call once during startup
-	static Resources* getResources() { return resources; }
+	static std::shared_ptr<Resources> getResources() { return resources; }
 	static bool isDebug() { return debugMode; }
 	static std::shared_ptr<Engine> newInstance();
 

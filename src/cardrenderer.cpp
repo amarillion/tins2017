@@ -9,6 +9,7 @@
 #include "molbi.h"
 #include "layout_const.h"
 #include "textstyle.h"
+#include "resources.h"
 
 using namespace std;
 
@@ -19,7 +20,7 @@ void drawOutlinedRect(int x1, int y1, int x2, int y2, ALLEGRO_COLOR outer, ALLEG
 
 class CardRenderer {
 
-	Resources *res;
+	shared_ptr<Resources> res;
 	ALLEGRO_FONT *font;
 
 public:

@@ -101,8 +101,8 @@ $(OBJDIR)/%.d: ;
 
 -include $(OBJDIR)/*.d
 
-CFLAGS_TEST = $(CFLAGS) `cppunit-config --cflags`
-LDFLAGS_TEST = `cppunit-config --libs`
+CFLAGS_TEST = $(CFLAGS) `pkg-config cppunit --cflags`
+LDFLAGS_TEST = `pkg-config cppunit --libs`
 TESTBIN = $(BUILDDIR)/test_runner
 
 SRC_TEST = $(wildcard test/*.cpp)

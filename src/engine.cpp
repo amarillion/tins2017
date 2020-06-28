@@ -7,6 +7,8 @@
 #include "version.h"
 #include "fileutil.h"
 #include "metrics.h"
+#include "game.h"
+#include "resources.h"
 
 using namespace std;
 
@@ -35,7 +37,7 @@ public:
 
 	void init() override
 	{
-		resources = new Resources();
+		resources = Resources::newInstance();
 
 		if (!(
 			resources->addFiles("data/*.ttf") &&
@@ -99,9 +101,7 @@ public:
 		}
 	}
 
-	~EngineImpl() {
-		delete resources; resources = NULL;
-	}
+	~EngineImpl() {}
 
 	void handleEvent(ALLEGRO_EVENT &event) override {
 		//TODO: implement F11 as a child of mainloop that send action events on press
@@ -150,7 +150,7 @@ public:
 	}
 };
 
-Resources *Engine::resources = NULL;
+shared_ptr<Resources> Engine::resources = NULL;
 bool Engine::debugMode = false;
 
 shared_ptr<Engine> Engine::newInstance()
