@@ -54,7 +54,7 @@ public:
 
 		resources->addDir("data");
 
-		auto font = resources->getFont("DejaVuSans_16");
+		auto font = resources->getFont("DejaVuSans")->get(16);
 		if (!font) {
 			allegro_message("Error loading font.\n");
 			exit(1);

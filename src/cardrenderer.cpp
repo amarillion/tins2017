@@ -26,7 +26,7 @@ class CardRenderer {
 public:
 	CardRenderer() {
 		res = Engine::getResources();
-		font = res->getFont("builtin_font");
+		font = res->getFont("builtin_font")->get();
 	}
 
 	void drawRibosome() {

@@ -367,7 +367,7 @@ public:
 		world.push_back(currentPeptideGroup);
 		world.push_back(geneGroup);
 
-		ALLEGRO_FONT *builtin_font = Engine::getResources()->getFont("builtin_font");
+		ALLEGRO_FONT *builtin_font = Engine::getResources()->getFont("builtin_font")->get();
 
 		add (
 			Text::build(BLACK, ALLEGRO_ALIGN_LEFT, "Goal:").font(builtin_font).xy(10, TARGET_PEPT_Y).get()
