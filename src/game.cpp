@@ -272,10 +272,7 @@ class TextBalloon : public Component {
 
 class GameImpl : public Game {
 private:
-	int currentLevel;
-public:
-	SpriteGroup world;
-private:
+	int currentLevel = 0;
 	shared_ptr<Metrics> metrics;
 
 	// positions in this vector should match the current DNAmodel...
@@ -308,6 +305,7 @@ private:
 
 	bool uiEnabled = true;
 public:
+	SpriteGroup world;
 
 	void changeCardFocus(int delta) {
 		if (cards.size() == 0) return;
@@ -357,7 +355,7 @@ public:
 
 	bool isUIEnabled() { return uiEnabled; }
 
-	GameImpl(shared_ptr<Metrics> metrics) : metrics(metrics), currentLevel(0), world() {
+	GameImpl(shared_ptr<Metrics> metrics) : metrics(metrics), world() {
 
 		targetPeptideGroup = make_shared<SpriteGroup>();
 		currentPeptideGroup = make_shared<SpriteGroup>();
