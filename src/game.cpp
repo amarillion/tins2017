@@ -26,6 +26,9 @@
 #include "metrics.h"
 #include "resources.h"
 
+#include "animator.h"
+#include "easing.h"
+
 using namespace std;
 
 class CodonTableView : public Component {
@@ -309,7 +312,7 @@ private:
 	SpriteGroup world;
 public:
 
-	void animate(const EasingFunc f, const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
+	void animate(const EasingFuncPtr f, const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
 		auto src = Vec<float>(target->getx(), target->gety());
 		auto dest = Vec<float>(destx, desty);
 		std::shared_ptr<Animator< Vec<float> > > animator = make_shared<Animator< Vec<float> > >(

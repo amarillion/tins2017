@@ -6,19 +6,11 @@
 #include <memory>
 #include <functional>
 #include "point.h"
+#include "updateable.h"
 
 struct ALLEGRO_BITMAP;
 struct ALLEGRO_FONT;
 class Anim;
-
-class Updateable {
-private:
-	bool alive = true;
-public:
-	virtual void update() = 0;
-	void kill() { alive = false; }
-	bool isAlive() { return alive; }
-};
 
 class Sprite : public Updateable
 {
@@ -61,73 +53,6 @@ public:
 	Sprite();
 	virtual ~Sprite() {}
 	virtual void handleAnimationComplete() {};
-};
-
-/*
- * Easing func: translates time component between 0 (start) and 1 (end) to a
- * value between 0 (start) and 1 (end). The result may overshoot and undershoot,
- * i.e. generate values outside the range 0 and 1, as long as the end points
- * are fixed, i.e. func(0) -> 0 and func(1) -> 1.
- */
-typedef double (*EasingFunc)(double);
-
-double linear(double val);
-double overshoot(double val);
-double sigmoid(double val);
-
-template<typename T>
-class Animator : public Updateable {
-	const EasingFunc f;
-	T src;
-	T dest;
-	std::function<void(T)> setter;
-	std::function<void()> onFinished;
-	int totalSteps;
-	int currentStep;
-public:
-	Animator (
-		const EasingFunc f,
-		std::function<void(T)> setter,
-		std::function<void()> onFinished,
-		const Vec<float> src, const Vec<float> dest, 
-		int steps
-	) : f(f), src(src), dest(dest), setter(setter), onFinished(onFinished), totalSteps(steps), currentStep(0) {
-	}
-
-	virtual void update() override {
-		if (!isAlive()) return;
-
-		// interpolate...
-		double delta = (double)currentStep / (double)totalSteps;
-
-		// apply easing func
-		double ease = f(delta);
-		T newp = src + ((dest - src) * ease);
-		setter(newp);
-
-		currentStep++;
-
-		if (currentStep > totalSteps) {
-			onFinished();
-			kill();
-		}
-	}
-};
-
-class UpdateableList {
-private:
-	std::list<std::shared_ptr<Updateable>> animators;
-public:
-	virtual void update() {
-		for (auto i : animators) {
-			if (i->isAlive()) i->update();
-		}
-		animators.remove_if ( [](std::shared_ptr<Updateable> i) { return !(i->isAlive()); });
-	}
-
-	void push_back(const std::shared_ptr<Updateable> &val) {
-		animators.push_back(val);
-	}
 };
 
 /** grouping of sprites
