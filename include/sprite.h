@@ -68,30 +68,39 @@ double linear(double val);
 double overshoot(double val);
 double sigmoid(double val);
 
-template <EasingFunc F>
-class MoveAnimator : public Sprite {
-
-	float destX, destY;
+class Animator {
+	const EasingFunc f;
 	float srcX, srcY;
+	float destX, destY;
 	std::shared_ptr<Sprite> target;
 	int totalSteps;
 	int currentStep;
+	bool alive = true;
 public:
-	MoveAnimator (const std::shared_ptr<Sprite> &target, float destX, float destY, int steps) :
-		destX(destX), destY(destY), target(target), totalSteps(steps), currentStep(0) {
-		srcX = target->getx();
-		srcY = target->gety();
-		visible = false;
+	Animator (
+		const EasingFunc f, 
+		const std::shared_ptr<Sprite> &target, 
+		float srcX, float srcY, float destX, float destY, 
+		int steps
+	) : f(f), srcX(srcX), srcY(srcY), destX(destX), destY(destY), target(target), totalSteps(steps), currentStep(0) {
 	}
 
-	virtual void update() {
+	void kill() {
+		alive = false;
+	}
+
+	bool isAlive() { 
+		return alive;
+	}
+
+	void update() {
 		if (!target) return;
 
 		// interpolate...
 		double delta = (double)currentStep / (double)totalSteps;
 
 		// apply easing func
-		double ease = F(delta);
+		double ease = f(delta);
 		double newx = srcX + ease * (destX - srcX);
 		double newy = srcY + ease * (destY - srcY);
 		target->setxy(newx, newy);
@@ -103,6 +112,22 @@ public:
 			kill();
 			target = nullptr;
 		}
+	}
+};
+
+class AnimatorList {
+private:
+	std::list<std::shared_ptr<Animator>> animators;
+public:
+	virtual void update() {
+		for (auto i : animators) {
+			if (i->isAlive()) i->update();
+		}
+		animators.remove_if ( [](std::shared_ptr<Animator> i) { return !(i->isAlive()); });
+	}
+
+	void push_back(const std::shared_ptr<Animator> &val) {
+		animators.push_back(val);
 	}
 };
 
@@ -157,9 +182,6 @@ public:
 			if (i->isAlive() && i->isVisible()) i->draw(gc);
 		}
 	}
-
-	void move(const std::shared_ptr<Sprite> &target, float destx, float desty, int steps);
-
 };
 
 #endif

@@ -304,8 +304,15 @@ private:
 	Script::iterator currentScriptEnd;
 
 	bool uiEnabled = true;
-public:
+
+	AnimatorList animators;
 	SpriteGroup world;
+public:
+
+	void animate(const EasingFunc f, const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
+		auto animator = make_shared<Animator>(f, target, target->getx(), target->gety(), destx, desty, steps);
+		animators.push_back(animator);
+	}
 
 	void changeCardFocus(int delta) {
 		if (cards.size() == 0) return;
@@ -505,7 +512,7 @@ public:
 		xco += pos * AA_STEPSIZE;
 
 		auto aa = peptideToSprite(currentPeptide, currentPeptideGroup, SECTION_X, RIBOSOME_Y, pos, false);
-		world.move(aa, xco, yco, 40);
+		animate(linear, aa, xco, yco, 40);
 	}
 
 	void createCheckMark(int pos) {
@@ -530,8 +537,7 @@ public:
 		check->setxy(xco, RIBOSOME_Y);
 		currentPeptideGroup->push_back(check);
 
-		auto animator = make_shared <MoveAnimator<overshoot> >(check, xco, yco, 40);
-		world.push_back(animator);
+		animate(overshoot, check, xco, yco, 40);
 	}
 
 
@@ -926,6 +932,7 @@ public:
 
 	virtual void update() override {
 		world.update();
+		animators.update();
 		Container::update();
 	}
 
@@ -1020,7 +1027,7 @@ public:
 
 	void moveCursorToSelectedCard(int speed) {
 		if (selectedCard == cards.end()) return;
-		world.move(mutationCursor,
+		animate(linear, mutationCursor,
 				(*selectedCard)->origX + MUTCARD_W - 24,
 				(*selectedCard)->origY + MUTCARD_H - 8,
 			speed);
@@ -1028,7 +1035,7 @@ public:
 
 	void moveCursorToPos(int pos, int speed) {
 		int newx = (SECTION_X + NT_STEPSIZE * pos);
-		world.move(mutationCursor, newx, CURSOR_Y, speed);
+		animate(linear, mutationCursor, newx, CURSOR_Y, speed);
 		mutationCursor->setPos(pos);
 	}
 
@@ -1053,7 +1060,7 @@ public:
 			break;
 		case ALLEGRO_KEY_ESCAPE:
 			// move card back to where it came from...
-			world.move(*selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, MOVE_SPEED_LONG);
+			animate(linear, *selectedCard, (*selectedCard)->origX, (*selectedCard)->origY, MOVE_SPEED_LONG);
 			moveCursorToSelectedCard(MOVE_SPEED_LONG);
 			mode = Mode::MUTATION_SELECT;
 			break;
@@ -1091,7 +1098,7 @@ public:
 		case ALLEGRO_KEY_PAD_ENTER:
 			if (selectedCard != cards.end()) {
 				moveCursorToPos(0, MOVE_SPEED_LONG);
-				world.move(*selectedCard, SECTION_X + 0, GENE_Y + 120, MOVE_SPEED_LONG);
+				animate(linear, *selectedCard, SECTION_X + 0, GENE_Y + 120, MOVE_SPEED_LONG);
 				MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_select"));
 				mode = Mode::POS_SELECT;
 			}
@@ -1175,7 +1182,7 @@ void NucleotideSprite::moveToPos(int _pos) {
 	int xco = SECTION_X + NT_STEPSIZE * _pos;
 	int yco = GENE_Y;
 	pos = _pos;
-	parent->world.move(shared_from_this(), xco, yco, 50);
+	parent->animate(linear, shared_from_this(), xco, yco, 50);
 }
 
 void Ribosome::nextAnimation() {
@@ -1194,13 +1201,12 @@ void Ribosome::nextAnimation() {
 
 	if (aaPos >= parent->getCurrentPeptideSize()) {
 		// fall down
-		parent->world.move(shared_from_this(), x, 600, 50);
+		parent->animate(linear, shared_from_this(), x, 600, 50);
 	}
 	else {
 		int xco = aaPos * AA_STEPSIZE + (AA_SPACING / 2) + SECTION_X;
 		int yco = RIBOSOME_Y;
 
-		auto animator = make_shared <MoveAnimator<sigmoid> >(shared_from_this(), xco, yco, 50);
-		parent->world.push_back(animator);
+		parent->animate(sigmoid, shared_from_this(), xco, yco, 50);
 	}
 }

@@ -38,8 +38,3 @@ void Sprite::setDir(int value)
 {
 	dir = value; animStart = MainLoop::getMainLoop()->getMsecCounter();
 }
-
-void SpriteGroup::move(const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
-	auto animator = make_shared <MoveAnimator<linear> >(target, destx, desty, steps);
-	sprites.push_back(animator);
-}
