@@ -6,7 +6,7 @@
 
 using namespace std;
 
-Sprite::Sprite() : x(0), y(0), w(16), h(16), alive(true), visible(true), awake(true) {
+Sprite::Sprite() : x(0), y(0), w(16), h(16), visible(true), awake(true) {
 }
 
 void Sprite::draw(const GraphicsContext &gc) {

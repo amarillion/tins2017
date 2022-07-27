@@ -5,12 +5,22 @@
 #include <list>
 #include <memory>
 #include <functional>
+#include "point.h"
 
 struct ALLEGRO_BITMAP;
 struct ALLEGRO_FONT;
 class Anim;
 
-class Sprite
+class Updateable {
+private:
+	bool alive = true;
+public:
+	virtual void update() = 0;
+	void kill() { alive = false; }
+	bool isAlive() { return alive; }
+};
+
+class Sprite : public Updateable
 {
 protected:
 	// will either draw anim, if defined, or else sprite, if defined.
@@ -26,13 +36,10 @@ protected:
 	int w;
 	int h;
 
-	bool alive;
 	bool visible;
 	bool awake;
 
 public:
-	bool isAlive() { return alive; }
-	void kill() { alive = false; /* scheduled to be removed at next update from any list that is updated */ }
 	bool isVisible() { return visible; }
 	void setAwake(bool value) { awake = value; }
 	bool isAwake() { return awake; }
@@ -45,7 +52,7 @@ public:
 
 	virtual void draw(const GraphicsContext &gc);
 
-	virtual void update() {};
+	virtual void update() override {};
 	float getx() { return x; }
 	float gety() { return y; }
 	void setxy (int _x, int _y) { x = _x; y = _y; }
@@ -68,65 +75,57 @@ double linear(double val);
 double overshoot(double val);
 double sigmoid(double val);
 
-class Animator {
+template<typename T>
+class Animator : public Updateable {
 	const EasingFunc f;
-	float srcX, srcY;
-	float destX, destY;
-	std::shared_ptr<Sprite> target;
+	T src;
+	T dest;
+	std::function<void(T)> setter;
+	std::function<void()> onFinished;
 	int totalSteps;
 	int currentStep;
-	bool alive = true;
 public:
 	Animator (
-		const EasingFunc f, 
-		const std::shared_ptr<Sprite> &target, 
-		float srcX, float srcY, float destX, float destY, 
+		const EasingFunc f,
+		std::function<void(T)> setter,
+		std::function<void()> onFinished,
+		const Vec<float> src, const Vec<float> dest, 
 		int steps
-	) : f(f), srcX(srcX), srcY(srcY), destX(destX), destY(destY), target(target), totalSteps(steps), currentStep(0) {
+	) : f(f), src(src), dest(dest), setter(setter), onFinished(onFinished), totalSteps(steps), currentStep(0) {
 	}
 
-	void kill() {
-		alive = false;
-	}
-
-	bool isAlive() { 
-		return alive;
-	}
-
-	void update() {
-		if (!target) return;
+	virtual void update() override {
+		if (!isAlive()) return;
 
 		// interpolate...
 		double delta = (double)currentStep / (double)totalSteps;
 
 		// apply easing func
 		double ease = f(delta);
-		double newx = srcX + ease * (destX - srcX);
-		double newy = srcY + ease * (destY - srcY);
-		target->setxy(newx, newy);
+		T newp = src + ((dest - src) * ease);
+		setter(newp);
 
 		currentStep++;
 
 		if (currentStep > totalSteps) {
-			target->handleAnimationComplete();
+			onFinished();
 			kill();
-			target = nullptr;
 		}
 	}
 };
 
-class AnimatorList {
+class UpdateableList {
 private:
-	std::list<std::shared_ptr<Animator>> animators;
+	std::list<std::shared_ptr<Updateable>> animators;
 public:
 	virtual void update() {
 		for (auto i : animators) {
 			if (i->isAlive()) i->update();
 		}
-		animators.remove_if ( [](std::shared_ptr<Animator> i) { return !(i->isAlive()); });
+		animators.remove_if ( [](std::shared_ptr<Updateable> i) { return !(i->isAlive()); });
 	}
 
-	void push_back(const std::shared_ptr<Animator> &val) {
+	void push_back(const std::shared_ptr<Updateable> &val) {
 		animators.push_back(val);
 	}
 };

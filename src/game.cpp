@@ -219,7 +219,7 @@ public:
 	}
 
 	virtual void handleAnimationComplete() override {
-		if (alive) {
+		if (isAlive()) {
 			nextAnimation();
 		}
 	}
@@ -305,12 +305,19 @@ private:
 
 	bool uiEnabled = true;
 
-	AnimatorList animators;
+	UpdateableList animators;
 	SpriteGroup world;
 public:
 
 	void animate(const EasingFunc f, const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
-		auto animator = make_shared<Animator>(f, target, target->getx(), target->gety(), destx, desty, steps);
+		auto src = Vec<float>(target->getx(), target->gety());
+		auto dest = Vec<float>(destx, desty);
+		std::shared_ptr<Animator< Vec<float> > > animator = make_shared<Animator< Vec<float> > >(
+			f, 
+			[=](Vec<float> p){ target->setxy(p.x(), p.y()); }, 
+			[=]{ target->handleAnimationComplete(); },
+			src, dest,
+			steps);
 		animators.push_back(animator);
 	}
 
