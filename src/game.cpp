@@ -308,20 +308,19 @@ private:
 
 	bool uiEnabled = true;
 
-	UpdateableList animators;
 	SpriteGroup world;
 public:
 
 	void animate(const EasingFuncPtr f, const std::shared_ptr<Sprite> &target, float destx, float desty, int steps) {
-		auto src = Vec<float>(target->getx(), target->gety());
-		auto dest = Vec<float>(destx, desty);
-		std::shared_ptr<Animator< Vec<float> > > animator = make_shared<Animator< Vec<float> > >(
-			f, 
-			[=](Vec<float> p){ target->setxy(p.x(), p.y()); }, 
-			[=]{ target->handleAnimationComplete(); },
+		auto src = Vec2f(target->getx(), target->gety());
+		auto dest = Vec2f(destx, desty);
+		auto animator = make_shared<Animator< Vec2f > >(
 			src, dest,
-			steps);
-		animators.push_back(animator);
+			steps, 
+			[=](Vec2f p){ target->setxy(p.x(), p.y()); }, 
+			[=]{ target->handleAnimationComplete(); },
+			f);
+		add(animator);
 	}
 
 	void changeCardFocus(int delta) {
@@ -942,7 +941,6 @@ public:
 
 	virtual void update() override {
 		world.update();
-		animators.update();
 		Container::update();
 	}
 
