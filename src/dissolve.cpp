@@ -1,5 +1,6 @@
 #include "dissolve.h"
 #include <allegro5/allegro.h>
+#include <cstdio>
 
 DissolveEffect::DissolveEffect()
 {
