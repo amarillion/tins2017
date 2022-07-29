@@ -133,10 +133,10 @@ public:
 			bunny->setState(1);
 			mMain->setAwake(false);
 			MainLoop::getMainLoop()->playSample(resources->getSample("sound_scared"));
-			add (Timer::build(100, [=]() {
+			setTimer(100, [=]() {
 				game->initGame();
 				setFocus(game);
-			}).get());
+			});
 			break;
 		case E_BEFORE_QUIT:
 			setFocus(updates);

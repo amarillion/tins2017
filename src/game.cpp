@@ -689,22 +689,17 @@ public:
 			setUIEnabled(false);
 
 			// we have to wait for the Ribosome to finish. Ideally we have a signal that it's ready...
-			auto t1 = Timer::build(200, [=] () {
-
+			setTimer(200, [=] () {
 				startScriptId(levelInfo[currentLevel].endScriptId);
-
-			} ).get();
-
-			add(t1);
+			});
 		}
 		// you used up all your cards and you haven't won
 		else if (currentMutationCards.size() == 0) {
 			//TODO: prevent repeat invocations
-			auto t1 = Timer::build(100, [=] () {
+			setTimer(100, [=] () {
 				// display text explaining reset option.
 				startScriptId(RESET_SCRIPT_ID);
-			} ).get();
-			add(t1);
+			});
 		}
 
 	}
@@ -935,8 +930,7 @@ public:
 
 		patient->setState(2);
 		MainLoop::getMainLoop()->playSample(Engine::getResources()->getSample("sound_laser2"));
-		auto t1 = Timer::build(100, [=](){ patient->setState(0); }).get();
-		add(t1);
+		setTimer(100, [=](){ patient->setState(0); });
 	}
 
 	virtual void update() override {
